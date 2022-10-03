@@ -5,4 +5,6 @@ urlpatterns = [
     path('estoc/layers', views.LayersJson.as_view()),
     path('estoc/coords', views.DataThredds.as_view()),
     path('estoc/graphics', views.GraphicThredds.as_view()),
+    path('estoc/formdata', views.DataForm.as_view()),
+    path('estoc/formdatachoose', views.DataFormChoose.as_view()),
 ]

@@ -37,39 +37,58 @@ class LayersJson(APIView):
         """Retornar json de capas de la web Thredds"""
         url = 'http://data.plocan.eu/thredds/catalog.xml'
         thredds_catalog = thredds_uc.ThreddsCatalog()
-        res = thredds_catalog.get_layers_test()
-        return Response({'id': 'Thredds PLOCAN', 'name': 'Thredds PLOCAN', 'url': url, 'children': res})
+        # res = thredds_catalog.get_layers_test()
+        res = thredds_uc.ThreddsCatalog().get_first_layer_from_thredds(url)
+        init_dict = {'id': 'Thredds PLOCAN', 'name': 'Thredds PLOCAN', 'is_file': False, 'url': url, 'children': res}
+        return Response(init_dict)
 
 
 
 class DataThredds(APIView):
     serializer_class = serializers.URLSerializer
     serializer_class_2 = serializers.NameSerializer
+    serializer_class_3 = serializers.URLArraySerializer
+
     # def post(self, request):
-    #     serializer = self.serializer_class(data=request.data)
+    #     print("EN EL POST DE COORDINATES")
+    #     serializer = self.serializer_class_3(data=request.data)
     #     if serializer.is_valid():
-    #         url = serializer.validated_data.get('url')
-    #         res = thredds_uc.ThreddsCatalog().get_marker_coords_from_thredds(url)
+    #         url = serializer.validated_data.get('url_array')
+    #         # res = thredds_uc.ThreddsCatalog().get_marker_coords_from_thredds(url)
+    #         res = thredds_uc.ThreddsCatalog().get_marker_array_coords_from_thredds(url)
     #         return Response(res)
     #     else:
     #         return Response(
     #             serializer.errors,
     #             status=status.HTTP_400_BAD_REQUEST
     #         )
-
     def post(self, request):
-        """POST for local files"""
-        serializer = self.serializer_class_2(data=request.data)
+        print("EN EL POST DE COORDINATES")
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            name = serializer.validated_data.get('name')
-            print("name: ", name)
-            res = thredds_uc.ThreddsCatalog().get_coords_local_files(name)
+            url = serializer.validated_data.get('url')
+            # res = thredds_uc.ThreddsCatalog().get_marker_coords_from_thredds(url)
+            res = thredds_uc.ThreddsCatalog().get_data_from_file_to_map(url)
             return Response(res)
         else:
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
-        )
+            )
+
+    # def post(self, request):
+    #     """POST for local files"""
+    #     serializer = self.serializer_class_2(data=request.data)
+    #     if serializer.is_valid():
+    #         name = serializer.validated_data.get('name')
+    #         print("name: ", name)
+    #         res = thredds_uc.ThreddsCatalog().get_coords_local_files(name)
+    #         return Response(res)
+    #     else:
+    #         return Response(
+    #             serializer.errors,
+    #             status=status.HTTP_400_BAD_REQUEST
+    #     )
 
 class GraphicThredds(APIView):
 
@@ -96,3 +115,33 @@ class GraphicThredds(APIView):
         )
 
 
+class DataForm(APIView):
+    serializer_class_2 = serializers.NameSerializer
+    def post(self, request):
+        """POST for local files"""
+        serializer = self.serializer_class_2(data=request.data)
+        if serializer.is_valid():
+            name = serializer.validated_data.get('name')
+            res = thredds_uc.ThreddsCatalog().get_data_plot_forms(name)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class DataFormChoose(APIView):
+    serializer_class = serializers.FormPlotSerializer
+
+    def post(self, request):
+        """POST for local files"""
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            dataForm = serializer.validated_data.get('dataForm')
+            res = thredds_uc.ThreddsCatalog().get_graphic_from_dataForm(dataForm)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+        )
