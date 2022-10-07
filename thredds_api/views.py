@@ -2,6 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from thredds_api.usecase import thredds_usecase as thredds_uc
+from thredds_api.usecase import plots_usecase as plots_uc
 from thredds_api import serializers
 from rest_framework import status
 from django.http import JsonResponse
@@ -138,7 +139,7 @@ class DataFormChoose(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             dataForm = serializer.validated_data.get('dataForm')
-            res = thredds_uc.ThreddsCatalog().get_graphic_from_dataForm(dataForm)
+            res = plots_uc.Plots().init_generation_data(dataForm)
             return Response(res)
         else:
             return Response(

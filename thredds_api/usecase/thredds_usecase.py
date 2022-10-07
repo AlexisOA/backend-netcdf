@@ -1,10 +1,7 @@
-import requests
 from siphon.catalog import *
 import xarray as xr
-import numpy as np
 import json
 import matplotlib.pyplot as plt
-import sys
 import numpy as np
 import io
 import base64
@@ -98,11 +95,14 @@ class ThreddsCatalog:
         for coord in coords:
             if coord == 'TIME':
                 dates = num2date(ds[coord].values, ds[coord].units)
-                date_arr = [date.strftime('%Y-%m-%d %H:%M:%S') for date in dates]
-                coord_dim = {coord: date_arr, "time_real": ds[coord].values}
+                date_arr = [date.strftime('%Y-%m') for date in dates]
+                coord_dim = {coord: set(date_arr)}
                 json_data["coords"].append(coord_dim)
                 continue
-
+            # if coord != 'LATITUDE' and coord != 'LONGITUDE':
+            #     coord_dim = {"PARAM": coord}
+            #     json_data["coords"].append(coord_dim)
+            #     continue
             data = np.around(np.float64(ds[coord].values), 3)
             coord_dim = {coord: data.flatten()}
             json_data["coords"].append(coord_dim)
@@ -117,6 +117,8 @@ class ThreddsCatalog:
             print(all)
 
         return ["hola"]
+
+
 
 
 
