@@ -204,16 +204,27 @@ class ThreddsCatalog:
                 dict['is_file'] = False
                 dict['children'] = []
                 res.append(dict)
+            if len(top_catalog.datasets) > 0:
+                gen_dict = self.aux_get_first_layer(top_catalog)
+                for i in gen_dict:
+                    res.append(i)
         else:
-            for idx, data in enumerate(top_catalog.datasets.values()):
-                dict = {}
-                dict['id'] = str(data)
-                dict['name'] = str(data)
-                dict['url'] = data.access_urls['OPENDAP']
-                dict['is_file'] = True
-                dict['children'] = []
-                res.append(dict)
-                # ds = xr.open_dataset(data.access_urls['OPENDAP'], decode_times=False)
-                # print(ds.LATITUDE.values)
-                # print(type(ds.LATITUDE.values))
+            gen_dict = self.aux_get_first_layer(top_catalog)
+            for i in gen_dict:
+                res.append(i)
         return res
+
+    def aux_get_first_layer(self, catalog):
+        for idx, data in enumerate(catalog.datasets.values()):
+            dict = {}
+            dict['id'] = str(data)
+            dict['name'] = str(data)
+            dict['url'] = data.access_urls['OPENDAP']
+            dict['is_file'] = True
+            dict['children'] = []
+            # res.append(dict)
+            # ds = xr.open_dataset(data.access_urls['OPENDAP'], decode_times=False)
+            # print(ds.LATITUDE.values)
+            # print(type(ds.LATITUDE.values))
+            yield dict
+
