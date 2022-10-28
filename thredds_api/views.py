@@ -118,12 +118,25 @@ class GraphicThredds(APIView):
 
 class DataForm(APIView):
     serializer_class_2 = serializers.NameSerializer
+    # def post(self, request):
+    #     """POST for local files"""
+    #     serializer = self.serializer_class_2(data=request.data)
+    #     if serializer.is_valid():
+    #         name = serializer.validated_data.get('name')
+    #         res = thredds_uc.ThreddsCatalog().get_data_plot_forms(name)
+    #         return Response(res)
+    #     else:
+    #         return Response(
+    #             serializer.errors,
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
     def post(self, request):
         """POST for local files"""
         serializer = self.serializer_class_2(data=request.data)
         if serializer.is_valid():
             name = serializer.validated_data.get('name')
-            res = thredds_uc.ThreddsCatalog().get_data_plot_forms(name)
+            res = thredds_uc.ThreddsCatalog().get_data_select(name)
             return Response(res)
         else:
             return Response(
@@ -146,3 +159,4 @@ class DataFormChoose(APIView):
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
         )
+
