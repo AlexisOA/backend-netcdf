@@ -5,7 +5,7 @@ from thredds_api.usecase import thredds_usecase as thredds_uc
 from thredds_api.usecase import plots_usecase as plots_uc
 from thredds_api import serializers
 from rest_framework import status
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import time
 import matplotlib.pyplot as plt
 # Create your views here.
@@ -16,8 +16,8 @@ import numpy as np
 import io
 import base64
 
-class LayersJson(APIView):
 
+class LayersJson(APIView):
     serializer_class = serializers.URLSerializer
 
     def post(self, request):
@@ -44,9 +44,8 @@ class LayersJson(APIView):
         return Response(init_dict)
 
 
-
 class DataThredds(APIView):
-    serializer_class = serializers.URLSerializer
+    serializer_class = serializers.URLSSerializer
     serializer_class_2 = serializers.NameSerializer
     serializer_class_3 = serializers.URLArraySerializer
 
@@ -64,12 +63,13 @@ class DataThredds(APIView):
     #             status=status.HTTP_400_BAD_REQUEST
     #         )
     def post(self, request):
-        print("EN EL POST DE COORDINATES")
+        print(request.data)
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             url = serializer.validated_data.get('url')
+            url_download = serializer.validated_data.get('url_download')
             # res = thredds_uc.ThreddsCatalog().get_marker_coords_from_thredds(url)
-            res = thredds_uc.ThreddsCatalog().get_data_from_file_to_map(url)
+            res = thredds_uc.ThreddsCatalog().get_data_from_file_to_map(url, url_download)
             return Response(res)
         else:
             return Response(
@@ -91,15 +91,14 @@ class DataThredds(APIView):
     #             status=status.HTTP_400_BAD_REQUEST
     #     )
 
-class GraphicThredds(APIView):
 
+class GraphicThredds(APIView):
     serializer_class_2 = serializers.NameSerializer
 
     # def get(self, request):
     #     thredds_cat = thredds_uc.ThreddsCatalog()
     #     json_data = thredds_cat.get_graphic_from_nc_file()
     #     return JsonResponse(json_data)
-
 
     def post(self, request):
         """POST for local files"""
@@ -113,11 +112,12 @@ class GraphicThredds(APIView):
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
-        )
+            )
 
 
 class DataForm(APIView):
-    serializer_class_2 = serializers.NameSerializer
+    serializer_class_2 = serializers.URLSSerializer
+
     # def post(self, request):
     #     """POST for local files"""
     #     serializer = self.serializer_class_2(data=request.data)
@@ -135,14 +135,16 @@ class DataForm(APIView):
         """POST for local files"""
         serializer = self.serializer_class_2(data=request.data)
         if serializer.is_valid():
-            name = serializer.validated_data.get('name')
-            res = thredds_uc.ThreddsCatalog().get_data_select(name)
+            url = serializer.validated_data.get('url')
+            url_download = serializer.validated_data.get('url_download')
+            res = thredds_uc.ThreddsCatalog().get_data_select(url, url_download)
             return Response(res)
         else:
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+
 
 class DataFormChoose(APIView):
     serializer_class = serializers.FormPlotSerializer
@@ -158,5 +160,25 @@ class DataFormChoose(APIView):
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
-        )
+            )
 
+
+class CSVFile(APIView):
+    serializer_class = serializers.URLSerializer
+
+    def post(self, request):
+        """POST for local files"""
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            df = thredds_uc.ThreddsCatalog().get_dataframe_from_netcdf(url)
+            name_csv = url.split('/')[-1].replace(".nc", ".csv")
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename=%s' % name_csv
+            df.to_csv(path_or_buf=response, sep=';')
+            return response
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )

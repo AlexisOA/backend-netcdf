@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from siphon.catalog import *
 import xarray as xr
 import json
@@ -45,11 +46,12 @@ class ThreddsCatalog:
             store_dict.append(dict)
         return store_dict
 
-    def get_data_from_file_to_map(self, url):
+    def get_data_from_file_to_map(self, url, url_download):
         print("Marcadores del thredds: ", url)
         f = netCDF4.Dataset(url)
         dict_site = {}
         dict_site['url'] = url
+        dict_site['url_download'] = url_download
         dict_site['Name'] = f.getncattr('id')
         dict_site['Description'] = f.getncattr('summary')
         dict_site['Area'] = f.getncattr('area')
@@ -84,6 +86,14 @@ class ThreddsCatalog:
         dict['coords'] = [[ds.LATITUDE.values[0], ds.LONGITUDE.values[0]]]
         ds.close()
         return dict
+    def get_dataframe_from_netcdf(self, url):
+        ds = xr.open_dataset(url, decode_times=False)
+        return ds.to_dataframe().reset_index()
+
+        # name_csv = url.split('/')[-1].replace(".nc", ".csv")
+        # response = HttpResponse(content_type='text/csv')
+        # response['Content-Disposition'] = 'attachment; filename=%s' % name_csv
+        # return data_df.to_csv(path_or_buf=response, sep=';')
 
     def get_data_plot_forms(self, url):
         ds = xr.open_dataset(url, decode_times=False)
@@ -111,11 +121,13 @@ class ThreddsCatalog:
         print(json_data)
         return [json_data]
 
-    def get_data_select(self, url):
+    def get_data_select(self, url, url_download):
         ds = xr.open_dataset(url, decode_times=False)
         dict_complete = {}
-        dict_complete["name"] = url.split('/')[-1]
+        dict_complete["name"] = url.split('/')[-1].replace(".nc", "")
         dict_complete["type"] = "basic"
+        dict_complete["url"] = url
+        dict_complete["url_download"] = url_download
         dict_complete['date_from'] = ds.attrs['time_coverage_start']
         dict_complete['date_to'] = ds.attrs['time_coverage_end']
 
@@ -349,7 +361,7 @@ class ThreddsCatalog:
             for ref_ in top_catalog.catalog_refs:
                 dict = {}
                 ref = top_catalog.catalog_refs[ref_]
-                if(ref_ == "Test" or ref_ == "Gliders"): continue
+                if(ref_ == "Test" or ref_ == "Gliders" or ref_ == "UnderRevision"): continue
                 dict['id'] = ref_
                 dict['name'] = ref_
                 dict['url'] = ref.href
@@ -372,11 +384,8 @@ class ThreddsCatalog:
             dict['id'] = str(data)
             dict['name'] = str(data)
             dict['url'] = data.access_urls['OPENDAP']
+            dict['url_download'] = data.access_urls['HTTPServer']
             dict['is_file'] = True
             dict['children'] = []
-            # res.append(dict)
-            # ds = xr.open_dataset(data.access_urls['OPENDAP'], decode_times=False)
-            # print(ds.LATITUDE.values)
-            # print(type(ds.LATITUDE.values))
             yield dict
 

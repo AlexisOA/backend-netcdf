@@ -7,4 +7,5 @@ urlpatterns = [
     path('estoc/graphics', views.GraphicThredds.as_view()),
     path('estoc/formdata', views.DataForm.as_view()),
     path('estoc/formdatachoose', views.DataFormChoose.as_view()),
+    path('estoc/convertcsv', views.CSVFile.as_view()),
 ]
