@@ -137,7 +137,8 @@ class DataForm(APIView):
         if serializer.is_valid():
             url = serializer.validated_data.get('url')
             url_download = serializer.validated_data.get('url_download')
-            res = thredds_uc.ThreddsCatalog().get_data_select(url, url_download)
+            # res = thredds_uc.ThreddsCatalog().get_data_select(url, url_download)
+            res = thredds_uc.ThreddsCatalog().get_data_select_antiguo(url, url_download)
             return Response(res)
         else:
             return Response(
