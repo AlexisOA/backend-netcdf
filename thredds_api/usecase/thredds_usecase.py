@@ -11,6 +11,7 @@ from netCDF4 import num2date, date2num, date2index
 import pandas as pd
 import math
 
+
 class ThreddsCatalog:
 
     def get_layers_test(self):
@@ -87,6 +88,7 @@ class ThreddsCatalog:
         dict['coords'] = [[ds.LATITUDE.values[0], ds.LONGITUDE.values[0]]]
         ds.close()
         return dict
+
     def get_dataframe_from_netcdf(self, url):
         ds = xr.open_dataset(url, decode_times=False)
         return ds.to_dataframe().reset_index()
@@ -132,7 +134,6 @@ class ThreddsCatalog:
         dict_complete['date_from'] = ds.attrs['time_coverage_start']
         dict_complete['date_to'] = ds.attrs['time_coverage_end']
 
-
         dict_coord = {}
         for coord in list(ds.coords):
             if coord == 'TIME':
@@ -171,7 +172,9 @@ class ThreddsCatalog:
                     if len(dict_coord[coords]) > len(dict_coord['TIME']):
                         print("PRIMERA OPCION")
                         dataset['values'] = [[i, j] for i, j in
-                                   zip( np.around(np.float64(ds[varirable_filter].values.flatten()), 2), np.around(np.float64(dict_coord[coords].flatten()), 2)) if not (pd.isnull(i) or pd.isnull(j))]
+                                             zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                                                 np.around(np.float64(dict_coord[coords].flatten()), 2)) if
+                                             not (pd.isnull(i) or pd.isnull(j))]
                     else:
                         if "multipledepth" in url.lower():
                             dict_complete["type"] = "multiple"
@@ -183,14 +186,32 @@ class ThreddsCatalog:
                             print("TERCERA OPCION")
                             # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
                             dataset['values'] = [[i, j] for i, j in
-                                    zip(dict_coord['TIME'].flatten(), np.around(np.float64(ds[varirable_filter].values.flatten()), 3)) if not (pd.isnull(i) or pd.isnull(j))]
+                                                 zip(dict_coord['TIME'].flatten(),
+                                                     np.around(np.float64(ds[varirable_filter].values.flatten()), 3)) if
+                                                 not (pd.isnull(i) or pd.isnull(j))]
             dataset['units'] = units
             dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs['time_coverage_start'] + " to " + \
-                                           ds.attrs['time_coverage_end'] + "."
+                                         ds.attrs['time_coverage_end'] + "."
             dict_select["dataset"] = dataset
             dict_arr.append(dict_select)
         dict_complete["table_info"] = dict_arr
         return dict_complete
+
+    def get_sediments_trap_data(self, ds, dict_coord, variable_filter, units):
+        dict_select = {}
+        dataset = {}
+        if "flux" in ds[variable_filter].attrs['long_name']:
+            for coords in list(ds[variable_filter].coords):
+                dict_select['type_chart'] = "complex"
+                dict_select['Standard_name_coord'] = variable_filter
+                dict_select['value_coord'] = ""
+                dataset['values'] = [[i, j] for i, j in
+                                     zip(dict_coord[coords].flatten(),
+                                         np.around(np.float64(ds[variable_filter].values.flatten()), 2)) if
+                                     not (pd.isnull(i) or pd.isnull(j))]
+                dataset['units'] = units
+            dict_select["dataset"] = dataset
+        return dict_select
 
     def get_data_select_antiguo(self, url, url_download):
         ds = xr.open_dataset(url, decode_times=False)
@@ -213,13 +234,19 @@ class ThreddsCatalog:
             dict_coord[coord] = ds[coord].values
 
         dict_arr = []
+        colors = []
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
         for varirable_filter in list(my_filtered):
             dict_select = {}
             dict_info = {}
             container_info = []
-            dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
-                                                                                                         " ").capitalize()
+            try:
+                dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
+                                                                                                             " ").capitalize()
+            except:
+                dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['description'].replace("_",
+                                                                                                           " ").capitalize()
+
             try:
                 dict_select['Variable_name'] = ds.variables[varirable_filter].attrs['variable_name'].replace("_",
                                                                                                              " ").capitalize()
@@ -227,14 +254,23 @@ class ThreddsCatalog:
                 dict_select['Variable_name'] = ds.variables[varirable_filter].attrs['long_name'].replace("_",
                                                                                                          " ").capitalize()
             dict_select['name_data'] = str(varirable_filter).lower().capitalize()
-            dict_info['Units'] = ds.variables[varirable_filter].attrs['units'].replace("_", " ").capitalize()
-            dict_info['Min_value'] = ds.variables[varirable_filter].attrs['valid_min']
-            dict_info['Max_value'] = ds.variables[varirable_filter].attrs['valid_max']
+            try:
+                dict_info['Units'] = ds.variables[varirable_filter].attrs['units'].replace("_", " ").capitalize()
+                dict_info['Min_value'] = ds.variables[varirable_filter].attrs['valid_min']
+                dict_info['Max_value'] = ds.variables[varirable_filter].attrs['valid_max']
+            except:
+                dict_info['Units'] = ""
+                dict_info['Min_value'] = ""
+                dict_info['Max_value'] = ""
             container_info.append(dict_info)
             dict_select['info'] = container_info
             dataset = {}
             dataset_multiple = []
             units = [dict_info['Units']]
+            if ds.attrs['keywords'] == 'sediments':
+                dict_arr.append(dict_select)
+                dict_arr.append(self.get_sediments_trap_data(ds, dict_coord, varirable_filter, units))
+                continue
             for coords in list(ds[varirable_filter].coords):
                 # Si las coordenadas de TEMP son > 1, estamos ante el caso que TEMP dependa de 2 coordenadas
                 if len(list(ds[varirable_filter].coords)) > 1:
@@ -245,33 +281,45 @@ class ThreddsCatalog:
                         # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
                         if len(dict_coord[coords]) > len(dict_coord['TIME']):
                             dict_select['type_chart'] = "basic"
-                            print("PRIMERA OPCION")
+                            print("PRIMERA OPCION BASIC")
                             dataset['values'] = [[i, j] for i, j in
                                                  zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
                                                      np.around(np.float64(dict_coord[coords].flatten()), 2)) if
                                                  not (pd.isnull(i) or pd.isnull(j))]
+                            dataset['units'] = units
                         else:
                             # Aqui entramos en múltiples fechas, pero DEPTH puede ser de solo un elemento o multidepth
                             if ds[coords].size > 1:
+                                if len(colors) == 0:
+                                    import random
+                                    for i in range(len(ds[coords].values)):
+                                        random_number = random.randint(0, 16777215)
+                                        hex_number = str(hex(random_number))
+                                        hex_number = '#' + hex_number[2:]
+                                        colors.append(hex_number)
                                 dict_complete["type"] = "multiple"
                                 dict_select['type_chart'] = "multiple"
-                                # for i in ds[coords].values:
-                                #     dataset['values'] = [[j, k] for j, k in zip(dict_coord['TIME'].flatten(), np.around(
-                                #                                  np.float64(ds.variables[varirable_filter].values[:,i].flatten()), 3)) if not (pd.isnull(j) or pd.isnull(k))]
-                                #     dataset['units'] = units
-                                #     dataset_multiple.append(dataset)
-                                # print("-----------")
+                                for i in range(len(ds[coords].values)):
+                                    dataset['values'] = [[j, k] for j, k in zip(dict_coord['TIME'].flatten(), np.around(
+                                        np.float64(ds.variables[varirable_filter].values[:, int(i)].flatten()), 2)) if
+                                                         not (pd.isnull(j) or pd.isnull(k))]
+                                    dataset['units'] = units
+                                    dataset['value_coord'] = ds[coords].values[i]
+                                    dataset_multiple.append(dataset)
+                                    dataset = {}
 
                             else:
                                 dict_complete["type"] = "complex"
                                 dict_select['type_chart'] = "complex"
                                 dict_select['value_coord'] = dict_coord[coords].flatten()
-                                print("TERCERA OPCION")
+                                print("TERCERA OPCION COMPLEX")
                                 # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
                                 dataset['values'] = [[i, j] for i, j in
                                                      zip(dict_coord['TIME'].flatten(),
-                                                         np.around(np.float64(ds[varirable_filter].values.flatten()), 3)) if
+                                                         np.around(np.float64(ds[varirable_filter].values.flatten()),
+                                                                   2)) if
                                                      not (pd.isnull(i) or pd.isnull(j))]
+                                dataset['units'] = units
                 else:
                     dict_complete["type"] = "complex"
                     if coords == 'TIME':
@@ -280,8 +328,9 @@ class ThreddsCatalog:
                         dict_select['value_coord'] = ""
                         dataset['values'] = [[i, j] for i, j in
                                              zip(dict_coord[coords].flatten(),
-                                                 np.around(np.float64(ds[varirable_filter].values.flatten()), 3)) if
+                                                 np.around(np.float64(ds[varirable_filter].values.flatten()), 2)) if
                                              not (pd.isnull(i) or pd.isnull(j))]
+                        dataset['units'] = units
                     else:
                         dict_select['type_chart'] = "basic"
                         dict_select['value_coord'] = ""
@@ -289,28 +338,25 @@ class ThreddsCatalog:
                                              zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
                                                  np.around(np.float64(dict_coord[coords].flatten()), 2)) if
                                              not (pd.isnull(i) or pd.isnull(j))]
-            dataset['units'] = units
+                        dataset['units'] = units
             dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs['time_coverage_start'] + " to " + \
                                          ds.attrs['time_coverage_end'] + "."
             dict_select["dataset"] = dataset
-            dict_select["dataset"] = dataset_multiple
+            dict_select["dataset_multiple"] = dataset_multiple
+            dict_select["colors"] = colors
             dict_arr.append(dict_select)
         dict_complete["table_info"] = dict_arr
         return dict_complete
 
-    def  get_graphic_from_dataForm(self, obj):
+    def get_graphic_from_dataForm(self, obj):
         print(obj["url"])
         # ds = xr.open_dataset(obj.url, decode_times=False)
         data_alls = [k for k, v in obj.items() if v == 'All']
-        print("One line Code Key value: ", [k for k,v in obj.items() if v == 'All'])
+        print("One line Code Key value: ", [k for k, v in obj.items() if v == 'All'])
         for all in data_alls:
             print(all)
 
         return ["hola"]
-
-
-
-
 
     def get_graphic_from_local_file(self, url):
         # fn = "C:/Users/Plocan8/Documents/files_netcdf/" + str(url) + ".nc"
@@ -387,7 +433,7 @@ class ThreddsCatalog:
             for ref_ in top_catalog.catalog_refs:
                 dict = {}
                 ref = top_catalog.catalog_refs[ref_]
-                if(ref_ == "Test" or ref_ == "Gliders" or ref_ == "UnderRevision"): continue
+                if (ref_ == "Test" or ref_ == "Gliders" or ref_ == "UnderRevision"): continue
                 dict['id'] = ref_
                 dict['name'] = ref_
                 dict['url'] = ref.href
@@ -414,4 +460,3 @@ class ThreddsCatalog:
             dict['is_file'] = True
             dict['children'] = []
             yield dict
-
