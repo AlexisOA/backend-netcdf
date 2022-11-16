@@ -47,6 +47,19 @@ class ThreddsCatalog:
             store_dict.append(dict)
         return store_dict
 
+    def get_properties_from_sediments_trap(self, f):
+        dict_properties = {}
+        properties_long_name = []
+        for var in list(f.variables.keys()):
+            if "flux" in f[var].long_name:
+                print("SEDIMENTOOOOS")
+                var_info = f.variables[var]
+                try:
+                    properties_long_name.append("%s %s %s %s" % (var_info.long_name, '(', var, ')'))
+                    dict_properties['Properties'] = properties_long_name
+                except:
+                    continue
+        return dict_properties
     def get_data_from_file_to_map(self, url, url_download):
         f = netCDF4.Dataset(url)
         dict_site = {}
@@ -59,9 +72,18 @@ class ThreddsCatalog:
         dict_site['Longitude'] = f.getncattr('geospatial_lon_max')
         dict_site['Datefrom'] = f.getncattr('time_coverage_start')
         dict_site['Dateto'] = f.getncattr('time_coverage_end')
+        #Este valor de DEPTH no es válido, quitarlo.
         if 'DEPTH' in list(f.variables.keys()):
             dict_site['Depth'] = -(int(f.variables['DEPTH'].valid_min))
-
+        try:
+            if "sediments" in f.getncattr('keywords'):
+                properties = self.get_properties_from_sediments_trap(f)
+                dict_file_sediment = {}
+                dict_file_sediment['site'] = dict_site
+                dict_file_sediment['properties_file'] = properties
+                return dict_file_sediment
+        except:
+            pass
         dict_properties = {}
         # print(f.variables.keys())
         filtered = filter(lambda vars: 'QC' not in vars, list(f.variables.keys()))
@@ -197,25 +219,8 @@ class ThreddsCatalog:
         dict_complete["table_info"] = dict_arr
         return dict_complete
 
-    def get_sediments_trap_data(self, ds, dict_coord, variable_filter, units):
-        dict_select = {}
-        dataset = {}
-        if "flux" in ds[variable_filter].attrs['long_name']:
-            for coords in list(ds[variable_filter].coords):
-                dict_select['type_chart'] = "complex"
-                dict_select['Standard_name_coord'] = variable_filter
-                dict_select['value_coord'] = ""
-                dataset['values'] = [[i, j] for i, j in
-                                     zip(dict_coord[coords].flatten(),
-                                         np.around(np.float64(ds[variable_filter].values.flatten()), 2)) if
-                                     not (pd.isnull(i) or pd.isnull(j))]
-                dataset['units'] = units
-            dict_select["dataset"] = dataset
-        return dict_select
-
-    def get_data_select_antiguo(self, url, url_download):
-        ds = xr.open_dataset(url, decode_times=False)
-
+    def get_sediments_trap_data(self, ds, url, url_download):
+        generate_data = True
         dict_complete = {}
         dict_complete["name"] = url.split('/')[-1]
         dict_complete["type"] = "basic"
@@ -236,11 +241,14 @@ class ThreddsCatalog:
         dict_arr = []
         colors = []
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
+        dict_sediments = {}
         for varirable_filter in list(my_filtered):
             dict_select = {}
             dict_info = {}
             container_info = []
+            name = ""
             try:
+                name = ds.variables[varirable_filter].attrs['standard_name'].replace("_", " ").capitalize()
                 dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
                                                                                                              " ").capitalize()
             except:
@@ -267,63 +275,23 @@ class ThreddsCatalog:
             dataset = {}
             dataset_multiple = []
             units = [dict_info['Units']]
-            if ds.attrs['keywords'] == 'sediments':
-                dict_arr.append(dict_select)
-                dict_arr.append(self.get_sediments_trap_data(ds, dict_coord, varirable_filter, units))
-                continue
-            for coords in list(ds[varirable_filter].coords):
-                # Si las coordenadas de TEMP son > 1, estamos ante el caso que TEMP dependa de 2 coordenadas
-                if len(list(ds[varirable_filter].coords)) > 1:
-                    # Si estamos ante una coordenada distinta de TIME
-                    if coords != 'TIME':
-                        dict_select['Standard_name_coord'] = coords
-                        units.append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
-                        # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
-                        if len(dict_coord[coords]) > len(dict_coord['TIME']):
-                            dict_select['type_chart'] = "basic"
-                            print("PRIMERA OPCION BASIC")
-                            dataset['values'] = [[i, j] for i, j in
-                                                 zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
-                                                     np.around(np.float64(dict_coord[coords].flatten()), 2)) if
-                                                 not (pd.isnull(i) or pd.isnull(j))]
-                            dataset['units'] = units
-                        else:
-                            # Aqui entramos en múltiples fechas, pero DEPTH puede ser de solo un elemento o multidepth
-                            if ds[coords].size > 1:
-                                if len(colors) == 0:
-                                    import random
-                                    for i in range(len(ds[coords].values)):
-                                        random_number = random.randint(0, 16777215)
-                                        hex_number = str(hex(random_number))
-                                        hex_number = '#' + hex_number[2:]
-                                        colors.append(hex_number)
-                                dict_complete["type"] = "multiple"
-                                dict_select['type_chart'] = "multiple"
-                                for i in range(len(ds[coords].values)):
-                                    dataset['values'] = [[j, k] for j, k in zip(dict_coord['TIME'].flatten(), np.around(
-                                        np.float64(ds.variables[varirable_filter].values[:, int(i)].flatten()), 2)) if
-                                                         not (pd.isnull(j) or pd.isnull(k))]
-                                    dataset['units'] = units
-                                    dataset['value_coord'] = ds[coords].values[i]
-                                    dataset_multiple.append(dataset)
-                                    dataset = {}
+            if ds.attrs['keywords'] == 'sediments' and "flux" in name:
+                generate_data = True
+                dict_select['show_data'] = True
+            elif ds.attrs['keywords'] == 'sediments' and "flux" not in name:
+                generate_data = False
+                dataset['values'] = ds[varirable_filter].values.flatten()
+                dict_select['show_data'] = False
+                dict_sediments[varirable_filter] = ds[varirable_filter].values.flatten()
+            else:
+                dict_select['show_data'] = True
 
-                            else:
-                                dict_complete["type"] = "complex"
-                                dict_select['type_chart'] = "complex"
-                                dict_select['value_coord'] = dict_coord[coords].flatten()
-                                print("TERCERA OPCION COMPLEX")
-                                # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
-                                dataset['values'] = [[i, j] for i, j in
-                                                     zip(dict_coord['TIME'].flatten(),
-                                                         np.around(np.float64(ds[varirable_filter].values.flatten()),
-                                                                   2)) if
-                                                     not (pd.isnull(i) or pd.isnull(j))]
-                                dataset['units'] = units
-                else:
-                    dict_complete["type"] = "complex"
+            if generate_data:
+                for coords in list(ds[varirable_filter].coords):
+                    # Si las coordenadas de TEMP son > 1, estamos ante el caso que TEMP dependa de 2 coordenadas
+                    dict_complete["type"] = "sediments"
                     if coords == 'TIME':
-                        dict_select['type_chart'] = "complex"
+                        dict_select['type_chart'] = "sediments"
                         dict_select['Standard_name_coord'] = varirable_filter
                         dict_select['value_coord'] = ""
                         dataset['values'] = [[i, j] for i, j in
@@ -331,14 +299,167 @@ class ThreddsCatalog:
                                                  np.around(np.float64(ds[varirable_filter].values.flatten()), 2)) if
                                              not (pd.isnull(i) or pd.isnull(j))]
                         dataset['units'] = units
+                    # else:
+                    #     dict_select['type_chart'] = "basic"
+                    #     dict_select['value_coord'] = ""
+                    #     dataset['values'] = [[i, j] for i, j in
+                    #                          zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                    #                              np.around(np.float64(dict_coord[coords].flatten()), 2)) if
+                    #                          not (pd.isnull(i) or pd.isnull(j))]
+                    #     dataset['units'] = units
+            dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs['time_coverage_start'] + " to " + \
+                                         ds.attrs['time_coverage_end'] + "."
+            dict_select["dataset"] = dataset
+            dict_select["dataset_multiple"] = dataset_multiple
+            dict_select["colors"] = colors
+            dict_arr.append(dict_select)
+        dict_complete["table_info"] = dict_arr
+        return dict_complete
+
+    def get_data_meteo(self, ds, dict_coord):
+        print()
+    def get_data_select_antiguo(self, url, url_download):
+        ds = xr.open_dataset(url, decode_times=False)
+        # if ds.attrs['keywords'] == 'sediments': return self.get_sediments_trap_data(ds, url, url_download)
+        generate_data = True
+        dict_complete = {}
+        dict_complete["name"] = url.split('/')[-1]
+        dict_complete["type"] = "basic"
+        dict_complete["url"] = url
+        dict_complete["url_download"] = url_download
+        dict_complete['date_from'] = ds.attrs['time_coverage_start']
+        dict_complete['date_to'] = ds.attrs['time_coverage_end']
+
+        dict_coord = {}
+        for coord in list(ds.coords):
+            if coord == 'TIME':
+                my_date = np.array(
+                    [date.strftime('%Y-%m-%d %H:%M:%S') for date in num2date(ds.TIME.values, ds.TIME.units)])
+                dict_coord[coord] = my_date
+                continue
+            dict_coord[coord] = ds[coord].values
+        # arr_dict = self.get_data_meteo(ds, dict_coord)
+        dict_arr = []
+        colors = []
+        my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
+        dict_sediments = {}
+        for varirable_filter in list(my_filtered):
+            dict_select = {}
+            dict_info = {}
+            container_info = []
+            name = ""
+            try:
+                name = ds.variables[varirable_filter].attrs['standard_name'].replace("_"," ").capitalize()
+                dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
+                                                                                                             " ").capitalize()
+            except:
+                dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['description'].replace("_",
+                                                                                                           " ").capitalize()
+
+            try:
+                dict_select['Variable_name'] = ds.variables[varirable_filter].attrs['variable_name'].replace("_",
+                                                                                                             " ").capitalize()
+            except:
+                dict_select['Variable_name'] = ds.variables[varirable_filter].attrs['long_name'].replace("_",
+                                                                                                         " ").capitalize()
+            dict_select['name_data'] = str(varirable_filter).lower().capitalize()
+            try:
+                dict_info['Units'] = ds.variables[varirable_filter].attrs['units'].replace("_", " ").capitalize()
+                dict_info['Min_value'] = ds.variables[varirable_filter].attrs['valid_min']
+                dict_info['Max_value'] = ds.variables[varirable_filter].attrs['valid_max']
+            except:
+                dict_info['Units'] = ""
+                dict_info['Min_value'] = ""
+                dict_info['Max_value'] = ""
+            container_info.append(dict_info)
+            dict_select['info'] = container_info
+            dataset = {}
+            dataset_multiple = []
+            units = [dict_info['Units']]
+            try:
+                if ds.attrs['keywords'] == 'sediments' and "flux" in name:
+                    generate_data = True
+                    dict_select['show_data'] = True
+                elif ds.attrs['keywords'] == 'sediments' and "flux" not in name:
+                    generate_data = False
+                    # dataset['values'] = ds[varirable_filter].values.flatten()
+                    dict_select['show_data'] = False
+                    dataset['values'] = [[i, j] for i, j in
+                                         zip(dict_coord["TIME"].flatten(),
+                                             ds[varirable_filter].values.flatten()) if
+                                         not (pd.isnull(i) or pd.isnull(j))]
+                else:
+                    dict_select['show_data'] = True
+            except:
+                dict_select['show_data'] = True
+
+
+            if generate_data:
+                for coords in list(ds[varirable_filter].coords):
+                    # Si las coordenadas de TEMP son > 1, estamos ante el caso que TEMP dependa de 2 coordenadas
+                    if len(list(ds[varirable_filter].coords)) > 1:
+                        # Si estamos ante una coordenada distinta de TIME
+                        if coords != 'TIME':
+                            dict_select['Standard_name_coord'] = coords
+                            units.append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
+                            # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
+                            if len(dict_coord[coords]) > len(dict_coord['TIME']):
+                                dict_select['type_chart'] = "basic"
+                                print("PRIMERA OPCION BASIC")
+                                dataset['values'] = [[i, j] for i, j in
+                                                     zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                                                         np.around(np.float64(dict_coord[coords].flatten()), 2)) if
+                                                     not (pd.isnull(i) or pd.isnull(j))]
+                                dataset['units'] = units
+                            else:
+                                # Aqui entramos en múltiples fechas, pero DEPTH puede ser de solo un elemento o multidepth
+                                if ds[coords].size > 1:
+                                    if len(colors) == 0:
+                                        import random
+                                        for i in range(len(ds[coords].values)):
+                                            random_number = random.randint(0, 16777215)
+                                            hex_number = str(hex(random_number))
+                                            hex_number = '#' + hex_number[2:]
+                                            colors.append(hex_number)
+                                    dict_select['type_chart'] = "multiple"
+                                    for i in range(len(ds[coords].values)):
+                                        dataset['values'] = [[j, k] for j, k in zip(dict_coord['TIME'].flatten(), np.around(
+                                            np.float64(ds.variables[varirable_filter].values[:, int(i)].flatten()), 2)) if
+                                                             not (pd.isnull(j) or pd.isnull(k))]
+                                        dataset['units'] = units
+                                        dataset['value_coord'] = ds[coords].values[i]
+                                        dataset_multiple.append(dataset)
+                                        dataset = {}
+
+                                else:
+                                    dict_select['type_chart'] = "complex"
+                                    dict_select['value_coord'] = dict_coord[coords].flatten()
+                                    print("TERCERA OPCION COMPLEX")
+                                    # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
+                                    dataset['values'] = [[i, j] for i, j in
+                                                         zip(dict_coord['TIME'].flatten(),
+                                                             np.around(np.float64(ds[varirable_filter].values.flatten()),
+                                                                       2)) if
+                                                         not (pd.isnull(i) or pd.isnull(j))]
+                                    dataset['units'] = units
                     else:
-                        dict_select['type_chart'] = "basic"
-                        dict_select['value_coord'] = ""
-                        dataset['values'] = [[i, j] for i, j in
-                                             zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
-                                                 np.around(np.float64(dict_coord[coords].flatten()), 2)) if
-                                             not (pd.isnull(i) or pd.isnull(j))]
-                        dataset['units'] = units
+                        if coords == 'TIME':
+                            dict_select['type_chart'] = "complex"
+                            dict_select['Standard_name_coord'] = varirable_filter
+                            dict_select['value_coord'] = ""
+                            dataset['values'] = [[i, j] for i, j in
+                                                 zip(dict_coord[coords].flatten(),
+                                                     np.around(np.float64(ds[varirable_filter].values.flatten()), 2)) if
+                                                 not (pd.isnull(i) or pd.isnull(j))]
+                            dataset['units'] = units
+                        else:
+                            dict_select['type_chart'] = "basic"
+                            dict_select['value_coord'] = ""
+                            dataset['values'] = [[i, j] for i, j in
+                                                 zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                                                     np.around(np.float64(dict_coord[coords].flatten()), 2)) if
+                                                 not (pd.isnull(i) or pd.isnull(j))]
+                            dataset['units'] = units
             dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs['time_coverage_start'] + " to " + \
                                          ds.attrs['time_coverage_end'] + "."
             dict_select["dataset"] = dataset
