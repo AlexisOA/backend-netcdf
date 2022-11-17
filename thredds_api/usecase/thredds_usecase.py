@@ -10,7 +10,7 @@ import netCDF4
 from netCDF4 import num2date, date2num, date2index
 import pandas as pd
 import math
-
+import itertools
 
 class ThreddsCatalog:
 
@@ -60,6 +60,7 @@ class ThreddsCatalog:
                 except:
                     continue
         return dict_properties
+
     def get_data_from_file_to_map(self, url, url_download):
         f = netCDF4.Dataset(url)
         dict_site = {}
@@ -72,7 +73,7 @@ class ThreddsCatalog:
         dict_site['Longitude'] = f.getncattr('geospatial_lon_max')
         dict_site['Datefrom'] = f.getncattr('time_coverage_start')
         dict_site['Dateto'] = f.getncattr('time_coverage_end')
-        #Este valor de DEPTH no es válido, quitarlo.
+        # Este valor de DEPTH no es válido, quitarlo.
         if 'DEPTH' in list(f.variables.keys()):
             dict_site['Depth'] = -(int(f.variables['DEPTH'].valid_min))
         try:
@@ -317,7 +318,76 @@ class ThreddsCatalog:
         return dict_complete
 
     def get_data_meteo(self, ds, dict_coord):
-        print()
+        dict_arr = []
+        my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
+        # return list(my_filtered)
+        for variable in list(my_filtered):
+            dict_select = {}
+            dict_info = {}
+            container_info = []
+
+            try:
+                name = ds.variables[variable].attrs['standard_name'].replace("_", " ").capitalize()
+            except:
+                name = "not description"
+
+            try:
+                units = ds.variables[variable].attrs['units'].replace("_", " ").capitalize()
+            except:
+                units = "Not units"
+
+            try:
+                value_min = ds.variables[variable].attrs['valid_min']
+            except:
+                value_min = "Not value min"
+
+            try:
+                value_max = ds.variables[variable].attrs['valid_max']
+            except:
+                value_max = "Not value max"
+
+            dict_select['name_data'] = str(variable).lower().capitalize()
+            dict_select['Standard_name'] = name
+            dict_info['Units'] = units
+            dict_info['Min_value'] = value_min
+            dict_info['Max_value'] = value_max
+            container_info.append(dict_info)
+            dict_select['info'] = container_info
+            dict_select['show_data'] = True
+            dataset = {}
+            units = [dict_info['Units']]
+            for coords in list(ds[variable].coords):
+                if coords != 'TIME':
+                    dict_select['Standard_name_coord'] = coords
+                    units.append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
+                    dict_select['type_chart'] = "meteo"
+                    dict_select['value_coord'] = dict_coord[coords].flatten()
+                    # dataset['values'] = [[i, j, k] for i, j, k in
+                    #      zip(np.around(np.float64(ds[variable].values.flatten()), 2), dict_coord['TIME'],
+                    #          itertools.cycle(np.float64(ds[coords].values).flatten())) if
+                    #      not (pd.isnull(i) or pd.isnull(j) or pd.isnull(k))]
+                    dataset['values'] = [[i, j] for i, j in
+                                         zip(dict_coord['TIME'], np.around(np.float64(ds[variable].values.flatten()), 2)) if
+                                         not (pd.isnull(i) or pd.isnull(j))]
+                    # dataset['values'] = np.around(np.float64(ds[variable].values.flatten()), 2)
+                    dataset['units'] = units
+                else:
+                    print()
+                    # dict_select['type_chart'] = "basic"
+                    # dict_select['value_coord'] = ""
+                    # dataset['values'] = [[i, j] for i, j in
+                    #                      zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                    #                          np.around(np.float64(dict_coord[coords].flatten()), 2)) if
+                    #                      not (pd.isnull(i) or pd.isnull(j))]
+                    # dataset['units'] = units
+            dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs[
+                'time_coverage_start'] + " to " + \
+                                         ds.attrs['time_coverage_end'] + "."
+            dict_select["dataset"] = dataset
+            dict_arr.append(dict_select)
+        return dict_arr
+
+
     def get_data_select_antiguo(self, url, url_download):
         ds = xr.open_dataset(url, decode_times=False)
         # if ds.attrs['keywords'] == 'sediments': return self.get_sediments_trap_data(ds, url, url_download)
@@ -338,7 +408,10 @@ class ThreddsCatalog:
                 dict_coord[coord] = my_date
                 continue
             dict_coord[coord] = ds[coord].values
-        # arr_dict = self.get_data_meteo(ds, dict_coord)
+        if "Meteo" in url:
+            arr_dict = self.get_data_meteo(ds, dict_coord)
+            dict_complete["table_info"] = arr_dict
+            return dict_complete
         dict_arr = []
         colors = []
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
@@ -349,7 +422,7 @@ class ThreddsCatalog:
             container_info = []
             name = ""
             try:
-                name = ds.variables[varirable_filter].attrs['standard_name'].replace("_"," ").capitalize()
+                name = ds.variables[varirable_filter].attrs['standard_name'].replace("_", " ").capitalize()
                 dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
                                                                                                              " ").capitalize()
             except:
@@ -393,7 +466,6 @@ class ThreddsCatalog:
             except:
                 dict_select['show_data'] = True
 
-
             if generate_data:
                 for coords in list(ds[varirable_filter].coords):
                     # Si las coordenadas de TEMP son > 1, estamos ante el caso que TEMP dependa de 2 coordenadas
@@ -407,7 +479,8 @@ class ThreddsCatalog:
                                 dict_select['type_chart'] = "basic"
                                 print("PRIMERA OPCION BASIC")
                                 dataset['values'] = [[i, j] for i, j in
-                                                     zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
+                                                     zip(np.around(np.float64(ds[varirable_filter].values.flatten()),
+                                                                   2),
                                                          np.around(np.float64(dict_coord[coords].flatten()), 2)) if
                                                      not (pd.isnull(i) or pd.isnull(j))]
                                 dataset['units'] = units
@@ -423,8 +496,10 @@ class ThreddsCatalog:
                                             colors.append(hex_number)
                                     dict_select['type_chart'] = "multiple"
                                     for i in range(len(ds[coords].values)):
-                                        dataset['values'] = [[j, k] for j, k in zip(dict_coord['TIME'].flatten(), np.around(
-                                            np.float64(ds.variables[varirable_filter].values[:, int(i)].flatten()), 2)) if
+                                        dataset['values'] = [[j, k] for j, k in
+                                                             zip(dict_coord['TIME'].flatten(), np.around(
+                                                                 np.float64(ds.variables[varirable_filter].values[:,
+                                                                            int(i)].flatten()), 2)) if
                                                              not (pd.isnull(j) or pd.isnull(k))]
                                         dataset['units'] = units
                                         dataset['value_coord'] = ds[coords].values[i]
@@ -438,8 +513,9 @@ class ThreddsCatalog:
                                     # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
                                     dataset['values'] = [[i, j] for i, j in
                                                          zip(dict_coord['TIME'].flatten(),
-                                                             np.around(np.float64(ds[varirable_filter].values.flatten()),
-                                                                       2)) if
+                                                             np.around(
+                                                                 np.float64(ds[varirable_filter].values.flatten()),
+                                                                 2)) if
                                                          not (pd.isnull(i) or pd.isnull(j))]
                                     dataset['units'] = units
                     else:
