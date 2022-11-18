@@ -75,7 +75,11 @@ class ThreddsCatalog:
         dict_site['Dateto'] = f.getncattr('time_coverage_end')
         # Este valor de DEPTH no es válido, quitarlo.
         if 'DEPTH' in list(f.variables.keys()):
-            dict_site['Depth'] = -(int(f.variables['DEPTH'].valid_min))
+            try:
+                    dict_site['Depth'] = -(int(f.variables['DEPTH'].valid_min))
+            except:
+                dict_site['Depth'] = -1
+
         try:
             if "sediments" in f.getncattr('keywords'):
                 properties = self.get_properties_from_sediments_trap(f)
@@ -322,6 +326,8 @@ class ThreddsCatalog:
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
         # return list(my_filtered)
         for variable in list(my_filtered):
+            if "station_name" in variable:
+                continue
             dict_select = {}
             dict_info = {}
             container_info = []
@@ -356,30 +362,34 @@ class ThreddsCatalog:
             dict_select['show_data'] = True
             dataset = {}
             units = [dict_info['Units']]
+            print(variable)
             for coords in list(ds[variable].coords):
-                if coords != 'TIME':
-                    dict_select['Standard_name_coord'] = coords
+                if len(list(ds[variable].coords)) > 1:
+                    if coords != 'TIME':
+                        dict_select['Standard_name_coord'] = coords
+                        units.append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
+                        dict_select['type_chart'] = "meteo"
+                        dict_select['value_coord'] = dict_coord[coords].flatten()
+                        # dataset['values'] = [[i, j, k] for i, j, k in
+                        #      zip(np.around(np.float64(ds[variable].values.flatten()), 2), dict_coord['TIME'],
+                        #          itertools.cycle(np.float64(ds[coords].values).flatten())) if
+                        #      not (pd.isnull(i) or pd.isnull(j) or pd.isnull(k))]
+                        dataset['values'] = [[i, j] for i, j in
+                                             zip(dict_coord['TIME'], np.around(np.float64(ds[variable].values.flatten()), 2)) if
+                                             not (pd.isnull(i) or pd.isnull(j))]
+                        # dataset['values'] = np.around(np.float64(ds[variable].values.flatten()), 2)
+                        dataset['units'] = units
+                else:
+                    dict_select['Standard_name_coord'] = variable
                     units.append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
                     dict_select['type_chart'] = "meteo"
-                    dict_select['value_coord'] = dict_coord[coords].flatten()
-                    # dataset['values'] = [[i, j, k] for i, j, k in
-                    #      zip(np.around(np.float64(ds[variable].values.flatten()), 2), dict_coord['TIME'],
-                    #          itertools.cycle(np.float64(ds[coords].values).flatten())) if
-                    #      not (pd.isnull(i) or pd.isnull(j) or pd.isnull(k))]
+                    dict_select['value_coord'] = ""
                     dataset['values'] = [[i, j] for i, j in
-                                         zip(dict_coord['TIME'], np.around(np.float64(ds[variable].values.flatten()), 2)) if
+                                         zip(dict_coord['TIME'],
+                                             np.around(np.float64(ds[variable].values.flatten()), 2)) if
                                          not (pd.isnull(i) or pd.isnull(j))]
                     # dataset['values'] = np.around(np.float64(ds[variable].values.flatten()), 2)
                     dataset['units'] = units
-                else:
-                    print()
-                    # dict_select['type_chart'] = "basic"
-                    # dict_select['value_coord'] = ""
-                    # dataset['values'] = [[i, j] for i, j in
-                    #                      zip(np.around(np.float64(ds[varirable_filter].values.flatten()), 2),
-                    #                          np.around(np.float64(dict_coord[coords].flatten()), 2)) if
-                    #                      not (pd.isnull(i) or pd.isnull(j))]
-                    # dataset['units'] = units
             dict_select["description"] = ds.attrs['summary'] + ", from " + ds.attrs[
                 'time_coverage_start'] + " to " + \
                                          ds.attrs['time_coverage_end'] + "."
@@ -391,6 +401,10 @@ class ThreddsCatalog:
     def get_data_select_antiguo(self, url, url_download):
         ds = xr.open_dataset(url, decode_times=False)
         # if ds.attrs['keywords'] == 'sediments': return self.get_sediments_trap_data(ds, url, url_download)
+        try:
+            keywrds = ds.attrs['keywords']
+        except:
+            keywrds = ""
         generate_data = True
         dict_complete = {}
         dict_complete["name"] = url.split('/')[-1]
@@ -408,7 +422,7 @@ class ThreddsCatalog:
                 dict_coord[coord] = my_date
                 continue
             dict_coord[coord] = ds[coord].values
-        if "Meteo" in url:
+        if "Meteo" in url or "wind" in keywrds.lower() or "dm_meteo" in url:
             arr_dict = self.get_data_meteo(ds, dict_coord)
             dict_complete["table_info"] = arr_dict
             return dict_complete
@@ -421,6 +435,8 @@ class ThreddsCatalog:
             dict_info = {}
             container_info = []
             name = ""
+            if "station_name" in varirable_filter:
+                continue
             try:
                 name = ds.variables[varirable_filter].attrs['standard_name'].replace("_", " ").capitalize()
                 dict_select['Standard_name'] = ds.variables[varirable_filter].attrs['standard_name'].replace("_",
