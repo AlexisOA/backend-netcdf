@@ -518,14 +518,14 @@ class ThreddsCatalog:
                                                                             int(i)].flatten()), 2)) if
                                                              not (pd.isnull(j) or pd.isnull(k))]
                                         dataset['units'] = units
-                                        dataset['value_coord'] = ds[coords].values[i]
+                                        dataset['value_coord'] = np.around(np.float64(ds[coords].values[i]),2)
                                         dataset_multiple.append(dataset)
                                         dataset = {}
 
                                 else:
                                     dict_select['type_chart'] = "complex"
                                     dict_select['value_coord'] = dict_coord[coords].flatten()
-                                    print("TERCERA OPCION COMPLEX")
+                                    print("TERCERA OPCION COMPLEX--")
                                     # data = [[i, j] for i, j in zip(dict_complete['TIME'].flatten(), itertools.cycle(dict_complete[coords].flatten()))]
                                     dataset['values'] = [[i, j] for i, j in
                                                          zip(dict_coord['TIME'].flatten(),
@@ -535,13 +535,15 @@ class ThreddsCatalog:
                                                          not (pd.isnull(i) or pd.isnull(j))]
                                     dataset['units'] = units
                     else:
+                        units.append("")
                         if coords == 'TIME':
+                            print("TERCERA OPCION COMPLEX 2--")
                             dict_select['type_chart'] = "complex"
                             dict_select['Standard_name_coord'] = varirable_filter
                             dict_select['value_coord'] = ""
                             dataset['values'] = [[i, j] for i, j in
                                                  zip(dict_coord[coords].flatten(),
-                                                     np.around(np.float64(ds[varirable_filter].values.flatten()), 2)) if
+                                                     np.around(np.float64(ds[varirable_filter].values.flatten()), 3)) if
                                                  not (pd.isnull(i) or pd.isnull(j))]
                             dataset['units'] = units
                         else:
