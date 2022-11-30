@@ -1,23 +1,13 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from thredds_api.usecase import thredds_usecase as thredds_uc
-from thredds_api.usecase import plots_usecase as plots_uc
+from thredds_api.usecase import thredds_usecase as thredds_uc, datafiles_usecase as datafiles
 from thredds_api import serializers
 from rest_framework import status
 from django.http import JsonResponse, HttpResponse
-import time
-import matplotlib.pyplot as plt
-# Create your views here.
-import xarray as xr
-import matplotlib.pyplot as plt
-import sys
-import numpy as np
-import io
-import base64
 
 
-class LayersJson(APIView):
+class FixedObsLayers(APIView):
     serializer_class = serializers.URLSerializer
 
     def post(self, request):
@@ -25,7 +15,7 @@ class LayersJson(APIView):
 
         if serializer.is_valid():
             url = serializer.validated_data.get('url')
-            res = thredds_uc.ThreddsCatalog().get_first_layer_from_thredds(url)
+            res = thredds_uc.ThreddsCatalog().get_fixedobs_layers_from_thredds(url)
             # res = thredds_uc.ThreddsCatalog.get_layers_test(url)
             return Response(res)
         else:
@@ -39,8 +29,34 @@ class LayersJson(APIView):
         url = 'http://data.plocan.eu/thredds/catalog.xml'
         thredds_catalog = thredds_uc.ThreddsCatalog()
         # res = thredds_catalog.get_layers_test()
-        res = thredds_uc.ThreddsCatalog().get_first_layer_from_thredds(url)
-        init_dict = {'id': 'Thredds PLOCAN', 'name': 'Thredds PLOCAN', 'is_file': False, 'url': url, 'children': res}
+        res = thredds_uc.ThreddsCatalog().get_fixedobs_layers_from_thredds(url)
+        init_dict = {'id': 'Thredds PLOCAN', 'name': 'Fixed observatories', 'is_file': False, 'url': url, 'children': res}
+        return Response(init_dict)
+
+class GlidersLayers(APIView):
+
+    serializer_class = serializers.URLSerializer
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            res = thredds_uc.ThreddsCatalog().get_gliders_layers(url)
+            # res = thredds_uc.ThreddsCatalog.get_layers_test(url)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def get(self, request, format=None):
+        """Retornar json de capas de la web Thredds"""
+        url = 'http://data.plocan.eu/thredds/catalog.xml'
+        thredds_catalog = thredds_uc.ThreddsCatalog()
+        # res = thredds_catalog.get_layers_test()
+        res = thredds_uc.ThreddsCatalog().get_gliders_layers(url)
+        init_dict = {'id': 'Thredds PLOCAN', 'name': 'Autonomous systems', 'is_file': False, 'url': url, 'children': res}
         return Response(init_dict)
 
 
@@ -69,7 +85,7 @@ class DataThredds(APIView):
             url = serializer.validated_data.get('url')
             url_download = serializer.validated_data.get('url_download')
             # res = thredds_uc.ThreddsCatalog().get_marker_coords_from_thredds(url)
-            res = thredds_uc.ThreddsCatalog().get_data_from_file_to_map(url, url_download)
+            res = thredds_uc.ThreddsCatalog().get_info_file_for_popup(url, url_download)
             return Response(res)
         else:
             return Response(
@@ -77,59 +93,10 @@ class DataThredds(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    # def post(self, request):
-    #     """POST for local files"""
-    #     serializer = self.serializer_class_2(data=request.data)
-    #     if serializer.is_valid():
-    #         name = serializer.validated_data.get('name')
-    #         print("name: ", name)
-    #         res = thredds_uc.ThreddsCatalog().get_coords_local_files(name)
-    #         return Response(res)
-    #     else:
-    #         return Response(
-    #             serializer.errors,
-    #             status=status.HTTP_400_BAD_REQUEST
-    #     )
-
-
-class GraphicThredds(APIView):
-    serializer_class_2 = serializers.NameSerializer
-
-    # def get(self, request):
-    #     thredds_cat = thredds_uc.ThreddsCatalog()
-    #     json_data = thredds_cat.get_graphic_from_nc_file()
-    #     return JsonResponse(json_data)
-
-    def post(self, request):
-        """POST for local files"""
-        serializer = self.serializer_class_2(data=request.data)
-        if serializer.is_valid():
-            name = serializer.validated_data.get('name')
-            print("name: ", name)
-            res = thredds_uc.ThreddsCatalog().get_graphic_from_local_file(name)
-            return Response(res)
-        else:
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
 
 class DataForm(APIView):
     serializer_class_2 = serializers.URLSSerializer
-
-    # def post(self, request):
-    #     """POST for local files"""
-    #     serializer = self.serializer_class_2(data=request.data)
-    #     if serializer.is_valid():
-    #         name = serializer.validated_data.get('name')
-    #         res = thredds_uc.ThreddsCatalog().get_data_plot_forms(name)
-    #         return Response(res)
-    #     else:
-    #         return Response(
-    #             serializer.errors,
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
 
     def post(self, request):
         """POST for local files"""
@@ -138,7 +105,7 @@ class DataForm(APIView):
             url = serializer.validated_data.get('url')
             url_download = serializer.validated_data.get('url_download')
             # res = thredds_uc.ThreddsCatalog().get_data_select(url, url_download)
-            res = thredds_uc.ThreddsCatalog().get_data_select_antiguo(url, url_download)
+            res = datafiles.DataFiles().get_data_select_antiguo(url, url_download)
             return Response(res)
         else:
             return Response(
@@ -147,21 +114,6 @@ class DataForm(APIView):
             )
 
 
-class DataFormChoose(APIView):
-    serializer_class = serializers.FormPlotSerializer
-
-    def post(self, request):
-        """POST for local files"""
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            dataForm = serializer.validated_data.get('dataForm')
-            res = plots_uc.Plots().init_generation_data(dataForm)
-            return Response(res)
-        else:
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
 
 class CSVFile(APIView):
@@ -172,7 +124,7 @@ class CSVFile(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             url = serializer.validated_data.get('url')
-            df = thredds_uc.ThreddsCatalog().get_dataframe_from_netcdf(url)
+            df = thredds_uc.ThreddsCatalog().get_file_as_dataframe(url)
             name_csv = url.split('/')[-1].replace(".nc", ".csv")
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename=%s' % name_csv
