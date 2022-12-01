@@ -92,11 +92,42 @@ class DataThredds(APIView):
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+class DataThreddsProfiles(APIView):
+    serializer_class_3 = serializers.URLArraySerializer
 
-
+    def post(self, request):
+        serializer = self.serializer_class_3(data=request.data)
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            url_download = serializer.validated_data.get('url_download')
+            res = thredds_uc.ThreddsCatalog().get_info_file_for_popup_profiles(url, url_download)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class DataForm(APIView):
     serializer_class_2 = serializers.URLSSerializer
+
+    def post(self, request):
+        """POST for local files"""
+        serializer = self.serializer_class_2(data=request.data)
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            url_download = serializer.validated_data.get('url_download')
+            # res = thredds_uc.ThreddsCatalog().get_data_select(url, url_download)
+            res = datafiles.DataFiles().get_data_select_antiguo(url, url_download)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class DataFormProfiles(APIView):
+    serializer_class_2 = serializers.URLArraySerializer
 
     def post(self, request):
         """POST for local files"""

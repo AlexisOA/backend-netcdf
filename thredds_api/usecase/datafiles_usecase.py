@@ -6,6 +6,53 @@ from netCDF4 import num2date, date2num, date2index
 import pandas as pd
 
 class DataFiles:
+
+    def get_profiles_shipbased(self, url, url_download):
+        dict_complete = {}
+        first_url = url[0]
+        dict_complete["type"] = "basic"
+        dict_complete["url"] = url
+        dict_complete["url_download"] = url_download
+        dict_arr = []
+        ds_unique = xr.open_dataset(first_url, decode_times=False)
+
+
+        vars = filter(lambda vars: 'QC' not in vars, list(ds_unique.data_vars))
+        arr_standardnames = []
+        for i in list(vars):
+            try:
+                standard_name = ds_unique.variables[i].attrs['standard_name'].replace("_"," ").capitalize()
+            except:
+                standard_name = ds_unique.variables[i].attrs['long_name'].replace("_"," ").capitalize()
+            arr_standardnames.append(standard_name)
+            # dict_select['name_data'] = standard_name
+            # dict_select['Standard_name'] = standard_name
+            # dict_select['Variable_name'] = standard_name
+
+
+        for file_url in url:
+            ds = xr.open_dataset(file_url, decode_times=False)
+            my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
+            for idx, variable_filter in enumerate(list(my_filtered)):
+                dict_select = {}
+                for coords in list(ds[variable_filter].coords):
+                    # Si estamos ante una coordenada distinta de TIME
+                    dataset = {}
+                    if coords != 'TIME':
+                        dict_select['Standard_name_coord'] = coords
+                        # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
+                        if len(ds[coords].values.flatten()) > len(ds['TIME'].values.flatten()):
+                            dict_select['type_chart'] = "basic"
+                            print("PRIMERA OPCION BASIC")
+                            dataset['values'] = [[i, j] for i, j in
+                                                 zip(np.around(np.float64(ds[variable_filter].values.flatten()),
+                                                               3),
+                                                     np.around(np.float64(ds[coords].values.flatten()), 3)) if
+                                                 not (pd.isnull(i) or pd.isnull(j))]
+                dict_select["dataset"] = dataset
+                dict_arr.append(dict_select)
+
+
     def get_sediments_trap_data(self,  ds, dict_coord):
         dict_arr = []
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
@@ -223,6 +270,7 @@ class DataFiles:
                 dict_coord[coord] = my_date
                 continue
             dict_coord[coord] = ds[coord].values
+
         if "Meteo" in url or "wind" in keywrds.lower() or "dm_meteo" in url:
             arr_dict = self.get_data_meteo(ds, dict_coord)
             dict_complete["table_info"] = arr_dict

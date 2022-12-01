@@ -10,7 +10,8 @@ class URLSSerializer(serializers.Serializer):
 
 
 class URLArraySerializer(serializers.Serializer):
-    url_array = serializers.ListField()
+    url = serializers.ListField()
+    url_download = serializers.ListField()
 
 
 class NameSerializer(serializers.Serializer):

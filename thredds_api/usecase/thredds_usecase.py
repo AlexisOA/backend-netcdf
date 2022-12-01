@@ -7,7 +7,45 @@ import pandas as pd
 
 class ThreddsCatalog:
     def get_info_file_for_popup_profiles(self, url_arrays, urlDownload_arrays):
-        pass
+        latitude_y = np.array([])
+        longitude_x = np.array([])
+        dict_site = {}
+        first_file = url_arrays[0]
+        for url in url_arrays:
+            f = netCDF4.Dataset(url)
+            latitude_y = np.append(latitude_y, f.getncattr('geospatial_lat_min'), axis=None)
+            longitude_x = np.append(longitude_x, f.getncattr('geospatial_lon_max'), axis=None)
+        center_circle = [(np.max(longitude_x) + np.min(longitude_x))/2, (np.max(latitude_y) + np.min(latitude_y))/2]
+        dict_site['url'] = url_arrays
+        dict_site['url_download'] = urlDownload_arrays
+        f = netCDF4.Dataset(first_file)
+        date_split = f.getncattr('time_coverage_start').split('-')
+        date_month = f"{date_split[0]}/{date_split[1]}"
+        dict_site['Description'] = f.getncattr('summary')
+        dict_site['Area'] = f.getncattr('area')
+        dict_site['Datefrom'] = date_month
+        dict_site['Dateto'] = date_month
+        dict_site['Latitude'] = center_circle[1]
+        dict_site['Longitude'] = center_circle[0]
+        dict_site['isprofile'] = True
+        dict_properties = {}
+        # print(f.variables.keys())
+        filtered = filter(lambda vars: 'QC' not in vars, list(f.variables.keys()))
+        # dict_properties['Properties'] = list(filtered)
+        properties_long_name = []
+        for var in list(filtered):
+            var_info = f.variables[var]
+            try:
+                properties_long_name.append("%s %s %s %s" % (var_info.long_name, '(', var, ')'))
+                dict_properties['Properties'] = properties_long_name
+            except:
+                continue
+        dict_file = {}
+        dict_file['site'] = dict_site
+        dict_file['properties_file'] = dict_properties
+
+        return dict_file
+
     #Se está usando
     def get_info_file_for_popup(self, url, url_download):
         f = netCDF4.Dataset(url)
@@ -21,6 +59,7 @@ class ThreddsCatalog:
         dict_site['Longitude'] = f.getncattr('geospatial_lon_max')
         dict_site['Datefrom'] = f.getncattr('time_coverage_start')
         dict_site['Dateto'] = f.getncattr('time_coverage_end')
+        dict_site['isprofile'] = False
         # Este valor de DEPTH no es válido, quitarlo.
         if 'DEPTH' in list(f.variables.keys()):
             try:
