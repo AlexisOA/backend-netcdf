@@ -7,6 +7,6 @@ urlpatterns = [
     path('estoc/coords', views.DataThredds.as_view()),
     path('estoc/coordsprofiles', views.DataThreddsProfiles.as_view()),
     path('estoc/formdata', views.DataForm.as_view()),
-    path('estoc/formdataProfiles', views.DataForm.as_view()),
+    path('estoc/formdataProfiles', views.DataFormProfiles.as_view()),
     path('estoc/convertcsv', views.CSVFile.as_view()),
 ]

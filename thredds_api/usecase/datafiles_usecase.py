@@ -5,6 +5,7 @@ import netCDF4
 from netCDF4 import num2date, date2num, date2index
 import pandas as pd
 
+
 class DataFiles:
 
     def get_profiles_shipbased(self, url, url_download):
@@ -13,47 +14,68 @@ class DataFiles:
         dict_complete["type"] = "basic"
         dict_complete["url"] = url
         dict_complete["url_download"] = url_download
+        dict_complete["isprofile"] = True
         dict_arr = []
         ds_unique = xr.open_dataset(first_url, decode_times=False)
 
-
         vars = filter(lambda vars: 'QC' not in vars, list(ds_unique.data_vars))
         arr_standardnames = []
+        arr_varsnames = []
         for i in list(vars):
             try:
-                standard_name = ds_unique.variables[i].attrs['standard_name'].replace("_"," ").capitalize()
+                standard_name = ds_unique.variables[i].attrs['standard_name'].replace("_", " ").capitalize()
             except:
-                standard_name = ds_unique.variables[i].attrs['long_name'].replace("_"," ").capitalize()
+                standard_name = ds_unique.variables[i].attrs['long_name'].replace("_", " ").capitalize()
+
+            try:
+                units = ds_unique.variables[i].attrs['units'].replace("_", " ").capitalize()
+            except:
+                units = "Not units"
             arr_standardnames.append(standard_name)
+            arr_varsnames.append(i)
+        dict_complete["standard_names"] = arr_standardnames
+        dict_complete["variables_names"] = arr_varsnames
             # dict_select['name_data'] = standard_name
             # dict_select['Standard_name'] = standard_name
             # dict_select['Variable_name'] = standard_name
 
-
+        cont = 0
+        dict_profile = {}
         for file_url in url:
+            print(file_url)
             ds = xr.open_dataset(file_url, decode_times=False)
             my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
             for idx, variable_filter in enumerate(list(my_filtered)):
                 dict_select = {}
+                dict_select['Standard_name_variable'] = variable_filter
+                dict_select['units'] = [ds.variables[variable_filter].attrs['units'].replace("_", " ").capitalize()]
+                dataset = {}
                 for coords in list(ds[variable_filter].coords):
                     # Si estamos ante una coordenada distinta de TIME
-                    dataset = {}
                     if coords != 'TIME':
                         dict_select['Standard_name_coord'] = coords
+                        dict_select['units'].append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
                         # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
                         if len(ds[coords].values.flatten()) > len(ds['TIME'].values.flatten()):
                             dict_select['type_chart'] = "basic"
-                            print("PRIMERA OPCION BASIC")
+                            # print("PRIMERA OPCION BASIC")
                             dataset['values'] = [[i, j] for i, j in
                                                  zip(np.around(np.float64(ds[variable_filter].values.flatten()),
                                                                3),
                                                      np.around(np.float64(ds[coords].values.flatten()), 3)) if
                                                  not (pd.isnull(i) or pd.isnull(j))]
+                print(variable_filter)
+                print("_______________________")
                 dict_select["dataset"] = dataset
                 dict_arr.append(dict_select)
+            dict_profile[f"profile{cont}"] = dict_arr
+            dict_arr = []
+            cont += 1
+        dict_complete["table_info"] = dict_profile
+        return dict_complete
 
 
-    def get_sediments_trap_data(self,  ds, dict_coord):
+    def get_sediments_trap_data(self, ds, dict_coord):
         dict_arr = []
         my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
         for variable in list(my_filtered):
@@ -223,7 +245,8 @@ class DataFiles:
                         #          itertools.cycle(np.float64(ds[coords].values).flatten())) if
                         #      not (pd.isnull(i) or pd.isnull(j) or pd.isnull(k))]
                         dataset['values'] = [[i, j] for i, j in
-                                             zip(dict_coord['TIME'], np.around(np.float64(ds[variable].values.flatten()), 2)) if
+                                             zip(dict_coord['TIME'],
+                                                 np.around(np.float64(ds[variable].values.flatten()), 2)) if
                                              not (pd.isnull(i) or pd.isnull(j))]
                         # dataset['values'] = np.around(np.float64(ds[variable].values.flatten()), 2)
                         dataset['units'] = units
@@ -245,7 +268,6 @@ class DataFiles:
             dict_arr.append(dict_select)
         return dict_arr
 
-
     def get_data_select_antiguo(self, url, url_download):
         ds = xr.open_dataset(url, decode_times=False)
         # if ds.attrs['keywords'] == 'sediments': return self.get_sediments_trap_data(ds, url, url_download)
@@ -261,6 +283,7 @@ class DataFiles:
         dict_complete["url_download"] = url_download
         dict_complete['date_from'] = ds.attrs['time_coverage_start']
         dict_complete['date_to'] = ds.attrs['time_coverage_end']
+        dict_complete["isprofile"] = False
 
         dict_coord = {}
         for coord in list(ds.coords):
@@ -288,13 +311,13 @@ class DataFiles:
             container_info = []
 
             try:
-                standard_name = ds.variables[varirable_filter].attrs['standard_name'].replace("_"," ").capitalize()
+                standard_name = ds.variables[varirable_filter].attrs['standard_name'].replace("_", " ").capitalize()
             except:
-                standard_name = ds.variables[varirable_filter].attrs['long_name'].replace("_"," ").capitalize()
+                standard_name = ds.variables[varirable_filter].attrs['long_name'].replace("_", " ").capitalize()
             try:
-                variable_name = ds.variables[varirable_filter].attrs['variable_name'].replace("_"," ").capitalize()
+                variable_name = ds.variables[varirable_filter].attrs['variable_name'].replace("_", " ").capitalize()
             except:
-                variable_name = ds.variables[varirable_filter].attrs['long_name'].replace("_"," ").capitalize()
+                variable_name = ds.variables[varirable_filter].attrs['long_name'].replace("_", " ").capitalize()
 
             try:
                 units = ds.variables[varirable_filter].attrs['units'].replace("_", " ").capitalize()
@@ -358,7 +381,7 @@ class DataFiles:
                                                                         int(i)].flatten()), 2)) if
                                                          not (pd.isnull(j) or pd.isnull(k))]
                                     dataset['units'] = units
-                                    dataset['value_coord'] = np.around(np.float64(ds[coords].values[i]),2)
+                                    dataset['value_coord'] = np.around(np.float64(ds[coords].values[i]), 2)
                                     dataset_multiple.append(dataset)
                                     dataset = {}
 
