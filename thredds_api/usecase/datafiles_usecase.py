@@ -4,6 +4,7 @@ import numpy as np
 import netCDF4
 from netCDF4 import num2date, date2num, date2index
 import pandas as pd
+from datetime import datetime, timezone
 
 
 class DataFiles:
@@ -11,7 +12,7 @@ class DataFiles:
     def get_profiles_shipbased(self, url, url_download):
         dict_complete = {}
         first_url = url[0]
-        dict_complete["type"] = "basic"
+        dict_complete["type"] = "profile"
         dict_complete["url"] = url
         dict_complete["url_download"] = url_download
         dict_complete["isprofile"] = True
@@ -35,6 +36,11 @@ class DataFiles:
             arr_varsnames.append(i)
         dict_complete["standard_names"] = arr_standardnames
         dict_complete["variables_names"] = arr_varsnames
+        dict_complete['Description'] = ds_unique.attrs['summary']
+        # date_files = ds_unique.attrs['time_coverage_start']
+        # date_month = datetime.fromisoformat(date_files[:-1]).astimezone(timezone.utc)
+        # date_month.strftime('%Y-%m')
+        # dict_complete['date'] = date_month
             # dict_select['name_data'] = standard_name
             # dict_select['Standard_name'] = standard_name
             # dict_select['Variable_name'] = standard_name
@@ -48,6 +54,11 @@ class DataFiles:
             for idx, variable_filter in enumerate(list(my_filtered)):
                 dict_select = {}
                 dict_select['Standard_name_variable'] = variable_filter
+                date_file = ds.attrs['time_coverage_start']
+                d = datetime.fromisoformat(date_file[:-1]).astimezone(timezone.utc)
+                dict_select['time'] = d.strftime('%H:%M:%S')
+                dict_select['description'] = ds.attrs['summary'] + " to " + d.strftime('%Y-%m')
+                dict_select['long_name'] = ds.variables[variable_filter].attrs['long_name'].replace("_", " ")
                 dict_select['units'] = [ds.variables[variable_filter].attrs['units'].replace("_", " ").capitalize()]
                 dataset = {}
                 for coords in list(ds[variable_filter].coords):
@@ -57,11 +68,10 @@ class DataFiles:
                         dict_select['units'].append(ds.variables[coords].attrs['units'].replace("_", " ").capitalize())
                         # Si DEPTH es mayor que TIME, estamos ante un highchart de primera orden, DEPTH X TEMP en una única fecha
                         if len(ds[coords].values.flatten()) > len(ds['TIME'].values.flatten()):
-                            dict_select['type_chart'] = "basic"
+                            dict_select['type_chart'] = "profile"
                             # print("PRIMERA OPCION BASIC")
                             dataset['values'] = [[i, j] for i, j in
-                                                 zip(np.around(np.float64(ds[variable_filter].values.flatten()),
-                                                               3),
+                                                 zip(np.around(np.float64(ds[variable_filter].values.flatten()), 3),
                                                      np.around(np.float64(ds[coords].values.flatten()), 3)) if
                                                  not (pd.isnull(i) or pd.isnull(j))]
                 print(variable_filter)
