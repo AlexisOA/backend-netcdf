@@ -146,7 +146,6 @@ class ThreddsCatalog:
         return res
 
     def generate_layers_for_shipbased(self, catalog):
-        print("hola")
         groups_opendap = {}
         groups_http = {}
         for data in catalog.datasets.values():
@@ -159,6 +158,7 @@ class ThreddsCatalog:
                 groups_http[n] = [data.access_urls['HTTPServer']]
 
         for key, value in groups_opendap.items():
+            if "2009" in key: continue
             dict_group = {}
             url_opendap = value[0]
             name_id = url_opendap[url_opendap.rindex('/') + 1:url_opendap.rindex('CTD')+3]

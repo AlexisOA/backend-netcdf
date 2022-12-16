@@ -36,14 +36,7 @@ class DataFiles:
             arr_varsnames.append(i)
         dict_complete["standard_names"] = arr_standardnames
         dict_complete["variables_names"] = arr_varsnames
-        dict_complete['Description'] = ds_unique.attrs['summary']
-        # date_files = ds_unique.attrs['time_coverage_start']
-        # date_month = datetime.fromisoformat(date_files[:-1]).astimezone(timezone.utc)
-        # date_month.strftime('%Y-%m')
-        # dict_complete['date'] = date_month
-            # dict_select['name_data'] = standard_name
-            # dict_select['Standard_name'] = standard_name
-            # dict_select['Variable_name'] = standard_name
+
 
         cont = 0
         dict_profile = {}
