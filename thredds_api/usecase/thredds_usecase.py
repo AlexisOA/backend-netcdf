@@ -4,8 +4,98 @@ import numpy as np
 import netCDF4
 from netCDF4 import num2date, date2num, date2index
 import pandas as pd
+import threddsclient
 
 class ThreddsCatalog:
+
+    def access_to_catalog_thredds(self, url):
+        dict_thredds = {}
+        url_root = "http://data.plocan.eu/thredds/catalog.xml"
+        dict_thredds['id'] = "Thredds PLOCAN"
+        dict_thredds['name'] = "Thredds PLOCAN"
+        dict_thredds['url'] = "http://data.plocan.eu/thredds/catalog.xml"
+        dict_thredds['is_file'] = False
+        dict_thredds['children'] = []
+        catalog_complete = self.generate_json_catalogs_thredds(url_root, dict_thredds)
+        profiles_shipbased = self.generate_profiles_from_shipbased(catalog_complete)
+        return self.update_shipbased_profiles(catalog_complete, profiles_shipbased)
+
+    def update_shipbased_profiles(self,catalog, new_children):
+        for idx, obj in enumerate(catalog["children"]):
+            for data in obj["children"]:
+                if data["is_profile"]:
+                    data["children"] = new_children
+                    print(data)
+                    break
+        return catalog
+
+    def generate_profiles_from_shipbased(self, res):
+        arr = []
+        for obj in res["children"]:
+            for data in obj["children"]:
+                if data["is_profile"]:
+                    groups_opendap = {}
+                    groups_http = {}
+                    for ship in data["children"]:
+                        if ship['name'] == "UnderRevision": continue
+                        n = str(ship["name"]).split('_')[2]
+
+                        if n in groups_opendap:
+                            groups_opendap[n].append(ship["url"])
+                            groups_http[n].append(ship["url_download"])
+                        else:
+                            groups_opendap[n] = [ship["url"]]
+                            groups_http[n] = [ship["url_download"]]
+                    for key, value in groups_opendap.items():
+                        if "2009" in key: continue
+                        dict_group = {}
+                        url_opendap = value[0]
+                        name_id = url_opendap[url_opendap.rindex('/') + 1:url_opendap.rindex('CTD') + 3]
+                        dict_group['id'] = name_id
+                        dict_group['name'] = name_id
+                        dict_group['is_file'] = True
+                        dict_group['is_profile'] = True
+                        dict_group['children'] = []
+                        dict_group['url'] = value
+                        dict_group['url_download'] = groups_http[key]
+                        arr.append(dict_group)
+                    return arr
+
+    def generate_json_catalogs_thredds(self, url, dict_parameter):
+        root_catalog = TDSCatalog(url)
+        if len(root_catalog.catalog_refs) > 0:
+            for catalog in root_catalog.catalog_refs:
+                thredds_json = {}
+                # print(type(root_catalog.catalog_refs[catalog]))
+                if catalog == 'Test': continue
+                next_url = root_catalog.catalog_refs[catalog].href
+                thredds_json["name"] = catalog
+                thredds_json["id"] = catalog
+                thredds_json["url"] = next_url
+                thredds_json["is_file"] = False
+                if catalog == 'ship-based':
+                    thredds_json["is_profile"] = True
+                else:
+                    thredds_json["is_profile"] = False
+                thredds_json["children"] = []
+                for ds in threddsclient.crawl(next_url):
+                    url_file = next_url.replace("catalog.xml", ds.name)
+                    index = url_file.find("catalog")
+                    url = url_file[:index] + 'dodsC' + url_file[index:]
+                    url_download = url_file[:index] + 'fileServer' + url_file[index:]
+                    child = {}
+                    child["name"] = ds.name
+                    child["id"] = ds.name
+                    child["url"] = url.replace("catalog", "")
+                    child["url_download"] = url_download.replace("catalog", "")
+                    child["is_file"] = True
+                    thredds_json["children"].append(child)
+                self.generate_json_catalogs_thredds(next_url, thredds_json)
+                dict_parameter["children"].append(thredds_json)
+        else:
+            return dict_parameter
+        return dict_parameter
+
     def get_info_file_for_popup_profiles(self, url_arrays, urlDownload_arrays):
         latitude_y = np.array([])
         longitude_x = np.array([])
@@ -148,6 +238,7 @@ class ThreddsCatalog:
     def generate_layers_for_shipbased(self, catalog):
         groups_opendap = {}
         groups_http = {}
+        print(catalog.datasets.values())
         for data in catalog.datasets.values():
             n = str(data).split('_')[2]
             if n in groups_opendap:

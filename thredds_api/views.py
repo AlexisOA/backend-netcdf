@@ -7,6 +7,14 @@ from rest_framework import status
 from django.http import JsonResponse, HttpResponse
 
 
+class CatalogThredds(APIView):
+
+    def get(self, request, format=None):
+        """Retornar json de capas de la web Thredds"""
+        url = 'http://data.plocan.eu/thredds/catalog.xml'
+        res = thredds_uc.ThreddsCatalog().access_to_catalog_thredds(url)
+        return Response(res)
+
 class FixedObsLayers(APIView):
     serializer_class = serializers.URLSerializer
 

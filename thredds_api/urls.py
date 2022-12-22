@@ -9,4 +9,5 @@ urlpatterns = [
     path('estoc/formdata', views.DataForm.as_view()),
     path('estoc/formdataProfiles', views.DataFormProfiles.as_view()),
     path('estoc/convertcsv', views.CSVFile.as_view()),
+    path('estoc/threddscatalog', views.CatalogThredds.as_view()),
 ]

@@ -282,8 +282,8 @@ class DataFiles:
         dict_complete = {}
         dict_complete["name"] = url.split('/')[-1]
         dict_complete["type"] = "basic"
-        dict_complete["url"] = url
-        dict_complete["url_download"] = url_download
+        dict_complete["url"] = [url]
+        dict_complete["url_download"] = [url_download]
         dict_complete['date_from'] = ds.attrs['time_coverage_start']
         dict_complete['date_to'] = ds.attrs['time_coverage_end']
         dict_complete["isprofile"] = False
