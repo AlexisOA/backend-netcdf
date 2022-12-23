@@ -5,27 +5,42 @@ import netCDF4
 from netCDF4 import num2date, date2num, date2index
 import pandas as pd
 import threddsclient
-
+import os
+from django.conf import settings
+import json
 class ThreddsCatalog:
 
     def access_to_catalog_thredds(self, url):
-        dict_thredds = {}
-        url_root = "http://data.plocan.eu/thredds/catalog.xml"
-        dict_thredds['id'] = "Thredds PLOCAN"
-        dict_thredds['name'] = "Thredds PLOCAN"
-        dict_thredds['url'] = "http://data.plocan.eu/thredds/catalog.xml"
-        dict_thredds['is_file'] = False
-        dict_thredds['children'] = []
-        catalog_complete = self.generate_json_catalogs_thredds(url_root, dict_thredds)
-        profiles_shipbased = self.generate_profiles_from_shipbased(catalog_complete)
-        return self.update_shipbased_profiles(catalog_complete, profiles_shipbased)
+        base_dir = settings.BASE_DIR
+        new_dir = str(base_dir).replace("\\", "/") + "/thredds_api/files"
+        path = str(new_dir) + '/thredds_service.json'
+        if not os.path.exists(path):
+            print("Generando...")
+            dict_thredds = {}
+            url_root = "http://data.plocan.eu/thredds/catalog.xml"
+            dict_thredds['id'] = "Thredds PLOCAN"
+            dict_thredds['name'] = "Thredds PLOCAN"
+            dict_thredds['url'] = "http://data.plocan.eu/thredds/catalog.xml"
+            dict_thredds['is_file'] = False
+            dict_thredds['children'] = []
+            catalog_complete = self.generate_json_catalogs_thredds(url_root, dict_thredds)
+            profiles_shipbased = self.generate_profiles_from_shipbased(catalog_complete)
+            result = self.update_shipbased_profiles(catalog_complete, profiles_shipbased)
+            print(type(result))
+            with open(path, 'w') as fp:
+                json.dump(result, fp)
+            return result
+        else:
+            print("Cargando file")
+            with open(path) as json_file:
+                data = json.load(json_file)
+                return data
 
     def update_shipbased_profiles(self,catalog, new_children):
         for idx, obj in enumerate(catalog["children"]):
             for data in obj["children"]:
                 if data["is_profile"]:
                     data["children"] = new_children
-                    print(data)
                     break
         return catalog
 
