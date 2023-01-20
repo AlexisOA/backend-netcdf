@@ -100,7 +100,7 @@ class ThreddsCatalog:
                     url_download = url_file[:index] + 'fileServer' + url_file[index:]
                     child = {}
                     child["name"] = ds.name
-                    child["id"] = ds.name
+                    child["id"] = catalog + "/" + ds.name
                     child["url"] = url.replace("catalog", "")
                     child["url_download"] = url_download.replace("catalog", "")
                     child["is_file"] = True

@@ -8,6 +8,10 @@ class URLSSerializer(serializers.Serializer):
     url = serializers.URLField()
     url_download = serializers.URLField()
 
+class GliderVariableDataset(serializers.Serializer):
+    url = serializers.URLField()
+    name_variable = serializers.CharField()
+
 
 class URLArraySerializer(serializers.Serializer):
     url = serializers.ListField()

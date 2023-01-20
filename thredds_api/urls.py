@@ -10,4 +10,6 @@ urlpatterns = [
     path('estoc/formdataProfiles', views.DataFormProfiles.as_view()),
     path('estoc/convertcsv', views.CSVFile.as_view()),
     path('estoc/threddscatalog', views.CatalogThredds.as_view()),
+    path('gliders/dataset', views.GlidersDataset.as_view()),
+    path('gliders/datasetvariable', views.GlidersDatasetVariable.as_view()),
 ]

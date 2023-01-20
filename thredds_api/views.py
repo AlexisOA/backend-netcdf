@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from thredds_api.usecase import thredds_usecase as thredds_uc, datafiles_usecase as datafiles
+from thredds_api.usecase import thredds_usecase as thredds_uc, datafiles_usecase as datafiles, thredds_gliders as thredds_gliders
 from thredds_api import serializers
 from rest_framework import status
 from django.http import JsonResponse, HttpResponse
@@ -66,6 +66,39 @@ class GlidersLayers(APIView):
         res = thredds_uc.ThreddsCatalog().get_gliders_layers(url)
         init_dict = {'id': 'Thredds PLOCAN', 'name': 'Autonomous systems', 'is_file': False, 'url': url, 'children': res}
         return Response(init_dict)
+
+class GlidersDataset(APIView):
+    # serializer_class_3 = serializers.URLArraySerializer
+    serializer_class = serializers.URLSerializer
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            # url_download = serializer.validated_data.get('url_download')
+            # res = thredds_gliders.AutonomousSystems().get_dataset_glider(url)
+            res = thredds_gliders.AutonomousSystems().get_dataset_glider_coordinates(url)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class GlidersDatasetVariable(APIView):
+    # serializer_class_3 = serializers.URLArraySerializer
+    serializer_class = serializers.GliderVariableDataset
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            url = serializer.validated_data.get('url')
+            name_variable = serializer.validated_data.get('name_variable')
+            res = thredds_gliders.AutonomousSystems().get_data_properties_from_glider(url, name_variable)
+            return Response(res)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class DataThredds(APIView):
