@@ -200,7 +200,7 @@ class CSVFile(APIView):
             name_csv = url.split('/')[-1].replace(".nc", ".csv")
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename=%s' % name_csv
-            df.to_csv(path_or_buf=response, sep=';')
+            df.to_csv(path_or_buf=response, decimal=',', sep=';', index=False, float_format='%.4f')
             return response
         else:
             return Response(

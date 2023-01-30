@@ -45,7 +45,6 @@ class AutonomousSystems:
         data["data"] = data_dataset
         USV_DATA.append(data)
         dataset["USV_DATA"] = USV_DATA
-        print(dataset)
         return dataset
 
     def get_dataset_glider_without_nan(self, url):

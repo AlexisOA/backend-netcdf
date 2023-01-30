@@ -41,7 +41,6 @@ class DataFiles:
         cont = 0
         dict_profile = {}
         for file_url in url:
-            print(file_url)
             ds = xr.open_dataset(file_url, decode_times=False)
             my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
             for idx, variable_filter in enumerate(list(my_filtered)):
@@ -67,8 +66,6 @@ class DataFiles:
                                                  zip(np.around(np.float64(ds[variable_filter].values.flatten()), 3),
                                                      np.around(np.float64(ds[coords].values.flatten()), 3)) if
                                                  not (pd.isnull(i) or pd.isnull(j))]
-                print(variable_filter)
-                print("_______________________")
                 dict_select["dataset"] = dataset
                 dict_arr.append(dict_select)
             dict_profile[f"profile{cont}"] = dict_arr
