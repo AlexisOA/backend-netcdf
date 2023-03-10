@@ -42,13 +42,15 @@ class DataFiles:
         dict_profile = {}
         for file_url in url:
             ds = xr.open_dataset(file_url, decode_times=False)
+            my_date = np.array([date.strftime('%Y-%m-%d %H:%M:%S') for date in num2date(ds.TIME.values, ds.TIME.units)])
             my_filtered = filter(lambda vars: 'QC' not in vars, list(ds.data_vars))
             for idx, variable_filter in enumerate(list(my_filtered)):
                 dict_select = {}
                 dict_select['Standard_name_variable'] = variable_filter
                 date_file = ds.attrs['time_coverage_start']
                 d = datetime.fromisoformat(date_file[:-1]).astimezone(timezone.utc)
-                dict_select['time'] = d.strftime('%H:%M:%S')
+                # dict_select['time'] = d.strftime('%H:%M:%S')
+                dict_select['time'] = my_date[0]
                 dict_select['description'] = ds.attrs['summary'] + " to " + d.strftime('%Y-%m')
                 dict_select['long_name'] = ds.variables[variable_filter].attrs['long_name'].replace("_", " ")
                 dict_select['units'] = [ds.variables[variable_filter].attrs['units'].replace("_", " ").capitalize()]
