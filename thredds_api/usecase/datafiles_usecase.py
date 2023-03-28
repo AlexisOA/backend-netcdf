@@ -222,7 +222,7 @@ class DataFiles:
             except:
                 value_max = "Not value max"
 
-            dict_select['Variable_name'] = str(variable).lower().capitalize()
+            dict_select['name_data'] = str(variable).lower().capitalize()
             dict_select['Standard_name'] = name
             dict_info['Units'] = units
             dict_info['Min_value'] = value_min
