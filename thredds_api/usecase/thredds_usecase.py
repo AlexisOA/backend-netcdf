@@ -130,6 +130,7 @@ class ThreddsCatalog:
         dict_site['Area'] = f.getncattr('area')
         dict_site['Datefrom'] = date_month
         dict_site['Dateto'] = date_month
+        dict_site['Name'] = "Profile files"
         dict_site['Latitude'] = center_circle[1]
         dict_site['Longitude'] = center_circle[0]
         dict_site['isprofile'] = True
