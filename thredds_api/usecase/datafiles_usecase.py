@@ -284,7 +284,7 @@ class DataFiles:
         dict_complete['date_from'] = ds.attrs['time_coverage_start']
         dict_complete['date_to'] = ds.attrs['time_coverage_end']
         dict_complete["isprofile"] = False
-
+        dict_complete['sediments'] = False
         dict_coord = {}
         for coord in list(ds.coords):
             if coord == 'TIME':
@@ -297,10 +297,12 @@ class DataFiles:
         if "Meteo" in url or "wind" in keywrds.lower() or "dm_meteo" in url:
             arr_dict = self.get_data_meteo(ds, dict_coord)
             dict_complete["table_info"] = arr_dict
+            dict_complete['sediments'] = False
             return dict_complete
         if "sediments" in keywrds.lower() or "sediments" in url.lower():
             arr_dict = self.get_sediments_trap_data(ds, dict_coord)
             dict_complete["table_info"] = arr_dict
+            dict_complete['sediments'] = True
             return dict_complete
         dict_arr = []
         colors = []
