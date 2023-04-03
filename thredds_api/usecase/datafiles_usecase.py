@@ -49,6 +49,7 @@ class DataFiles:
                 date_file = ds.attrs['time_coverage_start']
                 d = datetime.fromisoformat(date_file[:-1]).astimezone(timezone.utc)
                 dict_select['time'] = d.strftime('%H:%M:%S')
+                dict_select['time_info'] = d.strftime('%Y-%m-%d %H:%M:%S')
                 dict_select['description'] = ds.attrs['summary'] + " to " + d.strftime('%Y-%m')
                 dict_select['long_name'] = ds.variables[variable_filter].attrs['long_name'].replace("_", " ")
                 dict_select['units'] = [ds.variables[variable_filter].attrs['units'].replace("_", " ").capitalize()]
