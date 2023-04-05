@@ -11,6 +11,11 @@ class URLSSerializer(serializers.Serializer):
 class GliderVariableDataset(serializers.Serializer):
     url = serializers.URLField()
     name_variable = serializers.CharField()
+class GliderVariableDatasetNew(serializers.Serializer):
+    url = serializers.URLField()
+    name_variable = serializers.CharField()
+    date_init = serializers.CharField()
+    date_fin = serializers.CharField()
 
 
 class URLArraySerializer(serializers.Serializer):

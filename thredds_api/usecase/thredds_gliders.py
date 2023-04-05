@@ -8,7 +8,7 @@ import threddsclient
 import os
 from django.conf import settings
 import json
-
+from datetime import datetime, timedelta
 
 class AutonomousSystems:
 
@@ -164,7 +164,11 @@ class AutonomousSystems:
             [date.strftime('%Y-%m-%d %H:%M:%S') for date in num2date(date, ds.TIME.units)])
         date_day = np.array(
             [date.strftime('%Y-%m-%d') for date in num2date(date, ds.TIME.units)])
+
         dates_uniques = np.unique(date_day)
+        dates_ordered = {}
+        dates_ordered["date_picker"] = [date_day[0], date_day[len(date_all) - 1]]
+
         list_obj_uniqdates = []
         for date_unique in dates_uniques:
             dict_date = {}
@@ -189,7 +193,7 @@ class AutonomousSystems:
                     "url": url
                 })
         data["data"] = data_dataset
-
+        # data["data"] = dates_ordered
         USV_DATA.append(coordinates)
         USV_DATA.append(data)
         position = {}
@@ -200,8 +204,11 @@ class AutonomousSystems:
         info_glider["date_start"] = ds.attrs['time_coverage_start']
         info_glider["date_end"] = ds.attrs['time_coverage_end']
         info_glider["url_download"] = url.replace("dodsC", "fileServer")
+        info_glider["url"] = url
         info_glider["name"] = url.split('/')[-1]
+        info_glider["summary"] = ds.attrs['summary']
         USV_DATA.append(info_glider)
+        USV_DATA.append(dates_ordered)
         dataset["USV_DATA"] = USV_DATA
         return dataset
 
@@ -231,8 +238,9 @@ class AutonomousSystems:
 
         date = np.array(
             [date.strftime('%Y-%m-%d %H:%M:%S') for date in num2date(date, ds.TIME_GPS.units)])
-        # my_date = np.array(
-        #     [date.strftime('%Y-%m-%d %H:%M:%S') for date in num2date(ds.TIME.values, ds.TIME.units)])
+        my_date = np.array(
+            [date.strftime('%Y-%m') for date in num2date(ds.TIME.values, ds.TIME.units)])
+        print("dateee: ", set(my_date))
         dict_select = {}
         dataset = {}
         try:
@@ -264,3 +272,61 @@ class AutonomousSystems:
             dict_select["dataset"] = dataset
             dict_complete["variable_info"] = dict_select
             return dict_complete
+
+    def get_data_properties_from_glider_two(self, url, variable_name, dateInit, dateFin):
+        ds = xr.open_dataset(url, decode_times=False)
+        dict_complete = {}
+        dict_complete["url"] = [url]
+        ts_init = ((datetime.strptime(dateInit, '%Y-%m-%d') - timedelta(days=1)) - datetime(1970, 1, 1)).total_seconds()
+        ts_fin = ((datetime.strptime(dateFin, '%Y-%m-%d') + timedelta(days=1)) - datetime(1970, 1, 1)).total_seconds()
+        tuple_index_range = np.where((ts_init <= ds.TIME.values) & (ds.TIME.values <= ts_fin))
+        variable = ds[variable_name].values[tuple_index_range[0]]
+        date = ds.TIME.values[tuple_index_range[0]]
+        latitude = ds.LATITUDE.values[tuple_index_range[0]]
+        longitude = ds.LONGITUDE.values[tuple_index_range[0]]
+
+        indices_deleted = np.where((np.isnan(variable)))
+        dict_complete["index_deleted"] = indices_deleted[0].flatten()
+        indice_variables = np.where(
+            (~np.isnan(variable))
+        )
+
+        date = date[indice_variables]
+        variable = variable[indice_variables]
+        latitude = latitude[indice_variables]
+        longitude = longitude[indice_variables]
+
+        dates_datetime = np.array(list(map(lambda x: np.datetime64(int(x), 's'), date)))
+        date_utc = np.datetime_as_string(dates_datetime, unit='s')
+        date = np.array(list(map(lambda s: s.replace('T', ' '), date_utc)))
+
+        dict_select = {}
+        dataset = {}
+        try:
+            units = ds.variables[variable_name].attrs['units'].replace("_", " ").capitalize()
+        except:
+            units = "Not units"
+
+        for coords in list(ds[variable_name].coords):
+            if coords == 'TIME':
+                dataset['values'] = [[i, j] for i, j in
+                                     zip(date.flatten(),
+                                         np.around(np.float64(variable.flatten()), 3)) if
+                                     not (pd.isnull(i) or pd.isnull(j))]
+                dataset['coordinates'] = [[i, j] for i, j in zip(latitude,longitude) if
+                                     not (pd.isnull(i) or pd.isnull(j))]
+                dataset['units'] = units
+                dataset['axis'] = [coords,
+                                   ds.variables[variable_name].attrs['standard_name'].replace("_", " ").capitalize()]
+                dataset['short_names'] = [coords, variable_name]
+            else:
+                dataset['values'] = [[]]
+                dataset['units'] = "Not units"
+                dataset['axis'] = []
+                dataset['short_names'] = []
+            dict_select["dataset"] = dataset
+            dict_complete["variable_info"] = dict_select
+            return dict_complete
+
+
+

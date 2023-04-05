@@ -85,14 +85,19 @@ class GlidersDataset(APIView):
             )
 
 class GlidersDatasetVariable(APIView):
-    # serializer_class_3 = serializers.URLArraySerializer
-    serializer_class = serializers.GliderVariableDataset
+    # serializer_class = serializers.GliderVariableDataset
+    serializer_class = serializers.GliderVariableDatasetNew
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             url = serializer.validated_data.get('url')
             name_variable = serializer.validated_data.get('name_variable')
-            res = thredds_gliders.AutonomousSystems().get_data_properties_from_glider(url, name_variable)
+            # res = thredds_gliders.AutonomousSystems().get_data_properties_from_glider(url, name_variable)
+
+            date_init = serializer.validated_data.get('date_init')
+            date_fin = serializer.validated_data.get('date_fin')
+            print(url, name_variable, date_init, date_fin)
+            res = thredds_gliders.AutonomousSystems().get_data_properties_from_glider_two(url, name_variable, date_init, date_fin)
             return Response(res)
         else:
             return Response(
